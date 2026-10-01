@@ -1,56 +1,39 @@
 import Phaser from 'phaser';
+import { buildForest } from '../world/ForestWorld';
 import { showOverlay } from '../ui/ScreenOverlay';
+import { session } from '../systems/SessionClient';
 
-/** Temporary code-drawn atmosphere. Final rainforest artwork arrives in later phases. */
 export class MenuScene extends Phaser.Scene {
   constructor() { super('MenuScene'); }
 
   create(): void {
-    const background = this.add.graphics();
-    background.fillStyle(0x102f31).fillRect(0, 0, 1280, 720);
-    background.fillStyle(0x244841, .5).fillEllipse(650, 420, 830, 560);
-    background.fillStyle(0x305447, .35).fillEllipse(660, 530, 720, 230);
-    // Layered silhouettes frame the title without requiring any remote assets.
-    for (let layer = 0; layer < 3; layer++) {
-      const foliage = this.add.graphics();
-      const color = [0x193d37, 0x102e2c, 0x092221][layer];
-      foliage.fillStyle(color);
-      for (let i = 0; i < 12; i++) {
-        const left = i % 2 === 0;
-        const x = left ? i * 13 - 70 : 1280 - i * 13 + 70;
-        const y = i * 72 - 65;
-        foliage.fillRect(x, y, 18, 270);
-        foliage.fillEllipse(x, y + 45, 190 + layer * 30, 72);
-        foliage.fillEllipse(x + (left ? 65 : -65), y + 95, 180, 64);
-      }
-    }
-    const motes = Array.from({ length: 24 }, (_, i) => this.add.rectangle(
-      (i * 173 + 97) % 1280, (i * 83 + 51) % 720, 3, 3, 0xc2d996, .3,
-    ));
-    for (const [i, mote] of motes.entries()) {
-      this.tweens.add({ targets: mote, y: mote.y - 28, alpha: .05, duration: 2500 + i * 130, yoyo: true, repeat: -1 });
-    }
+    session.disconnect();
+    buildForest(this, false);
+    this.cameras.main.setScroll(410, 465);
+    const shadow = this.add.ellipse(1400, 760, 80, 34, 0x102a21, .6).setDepth(759);
+    const frog = this.add.image(1400, 738, 'frog').setScale(2.8).setDepth(770).setRotation(-.3);
+    this.tweens.add({ targets: frog, y: 734, duration: 1200, yoyo: true, repeat: -1 });
+    this.tweens.add({ targets: shadow, alpha: .45, duration: 1200, yoyo: true, repeat: -1 });
     const root = showOverlay(this, `
-      <section class="screen">
-        <div class="eyebrow">A story from the forest floor</div>
-        <h1><span>MOUNTAIN</span><span>CHICKEN</span></h1>
-        <p class="subtitle">An Interactive Conservation Story</p>
-        <button type="button">START &nbsp; →</button>
-        <div class="caption">Enter the forest</div>
-        <div class="foundation-tag">Phase 1 · Foundation preview</div>
+      <section class="menu-screen">
+        <header class="menu-header"><div class="brand-mark">MC<span>FIELD STORIES</span></div><span class="build-label">FOREST PREVIEW · 02</span></header>
+        <div class="menu-content"><div class="eyebrow"><span class="tiny-line"></span>A story from the forest floor</div><h1><span>Mountain</span><span>Chicken<span class="title-period">.</span></span></h1><p class="subtitle">Small frog. A world worth saving.</p><p class="menu-description">Step beneath the canopy.<br>Explore a living forest, one hop at a time.</p><div class="menu-actions"><button id="play-button">PLAY SOLO <span>↗</span></button><button class="secondary" id="host-button">MAIN DEVICE</button></div><div class="caption"><button class="text-button join-link" id="join-button">HAVE A CODE? JOIN GAME →</button></div></div>
+        <footer class="menu-footer"><span>AN INTERACTIVE CONSERVATION STORY</span><span>HEADPHONES OPTIONAL · LANDSCAPE RECOMMENDED</span></footer>
       </section>`);
-    let starting = false;
-    root.querySelector('button')!.addEventListener('click', () => {
-      if (starting) return;
-      starting = true;
-      root.querySelector<HTMLButtonElement>('button')!.disabled = true;
-      root.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 400, fill: 'forwards' });
-      this.cameras.main.fadeOut(450, 0, 0, 0);
-      this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-        root.getAnimations().forEach(animation => animation.cancel());
-        this.scene.start('ForestScene');
-      });
+    root.querySelector('#play-button')!.addEventListener('click', () => this.start(root));
+    root.querySelector('#host-button')!.addEventListener('click', () => this.scene.start('HostScene'));
+    root.querySelector('#join-button')!.addEventListener('click', () => this.scene.start('ControllerScene'));
+    this.cameras.main.fadeIn(600, 0, 0, 0);
+  }
+
+  private start(root: HTMLElement): void {
+    const button = root.querySelector<HTMLButtonElement>('#play-button')!;
+    if (button.disabled) return;
+    button.disabled = true;
+    root.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 400, fill: 'forwards' });
+    this.cameras.main.fadeOut(450, 0, 0, 0);
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+      root.getAnimations().forEach(animation => animation.cancel()); this.scene.start('ForestScene');
     });
-    this.cameras.main.fadeIn(450, 0, 0, 0);
   }
 }

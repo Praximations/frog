@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 import { BootScene } from './scenes/BootScene';
 import { MenuScene } from './scenes/MenuScene';
 import { ForestScene } from './scenes/ForestScene';
+import { HostScene } from './scenes/HostScene';
+import { ControllerScene } from './scenes/ControllerScene';
 import './style.css';
 
 const game = new Phaser.Game({
@@ -14,7 +16,7 @@ const game = new Phaser.Game({
   roundPixels: true,
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
   physics: { default: 'arcade', arcade: { gravity: { x: 0, y: 0 }, debug: false } },
-  scene: [BootScene, MenuScene, ForestScene],
+  scene: [BootScene, MenuScene, ForestScene, HostScene, ControllerScene],
 });
 
 if (import.meta.hot) import.meta.hot.dispose(() => game.destroy(true));

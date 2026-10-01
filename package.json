@@ -7,9 +7,11 @@
     "dev": "vite --host 127.0.0.1",
     "check": "tsc --noEmit",
     "build": "npm run check && vite build",
-    "preview": "vite preview --host 127.0.0.1"
+    "preview": "vite preview --host 127.0.0.1",
+    "host": "npm run build && node server/index.mjs",
+    "test:connection": "node --test server/session.test.mjs"
   },
-  "dependencies": { "phaser": "^3.90.0" },
+  "dependencies": { "phaser": "^3.90.0", "ws": "^8.18.0" },
   "devDependencies": { "typescript": "~5.9.3", "vite": "^7.1.0" },
   "engines": { "node": ">=22.12.0" }
 }
