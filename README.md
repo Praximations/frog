@@ -1,111 +1,119 @@
-﻿# Mountain Chicken
+# Mountain Chicken — a class game about a giant, disappearing frog
 
-A Phaser 3 / TypeScript / Vite game with a playable pixel forest and an optional main-device/controller mode.
+A pixel-art game for a ~10 minute endangered-species presentation. **One person hosts it on the projector** and plays as a mountain chicken frog (*Leptodactylus fallax*) through five short chapters. The class joins on their phones, Kahoot-style, with a game PIN: they answer a quiz after each chapter, send live reactions, drop crickets for the frog to eat, and one classmate can even drive the frog.
 
-## Test it now
+Every rubric requirement appears in the game as a numbered **Field Journal** card (1–10). The finale shows all ten together, so you can point at them.
 
-From the Frog folder, with Node.js 22.12+ installed:
+## Run it in class
+
+Requires Node.js 22.12+.
 
 ```sh
 npm install
-npm run dev
-```
-
-Open http://127.0.0.1:5173 and choose the arrow-shaped **PLAY** button.
-
-- WASD or arrow keys: move.
-- Space while moving: quick hop.
-- E near a board or insect: interact.
-- Escape or the pause button: pause/resume.
-
-Inspect the field board above your starting point. Follow the marker to catch three insects, cross the wooden bridge, and inspect the stream lookout. Then follow the path south to the researcher at the red-roofed field station. The direction hint points toward the current goal.
-
-The pause menu can resume, retry the latest checkpoint, start over, or return to the title. Expand **Presenter** to move between checkpoints when demonstrating the game. Checkpoints restore position, food, energy, and objective progress for the current session; they do not persist after a page reload. Information cards stop gameplay until you continue. Energy is a simplified game value, not a biological measurement.
-
-## Main device + play screen
-
-```sh
 npm run host
 ```
 
-This builds the game and starts a small Node server on port 3000. Keep that terminal open.
+Leave that terminal open. On the projector laptop, open **http://localhost:3000**, press **PLAY**, then **START** when everyone's in.
 
-1. On the main computer, open http://localhost:3000 and choose **MAIN DEVICE**. A real six-digit room code appears.
-2. On the second device, open a **same-network address printed by the terminal**, for example `http://192.168.x.x:3000`. Both devices must be on a network that allows them to reach the hosting computer.
-3. Choose **JOIN GAME**, enter the code, and connect.
-4. On the main computer, choose **Play ▸**.
-5. Play using the second device's touch controls or keyboard while watching the main screen.
+- The lobby shows a **join address, a big game PIN and a QR code**. Classmates scan the QR (or type the address and PIN) and pick a nickname. Their names pop onto the screen.
+- Phones have to be on the **same Wi-Fi** as the laptop. Many school networks block devices from reaching each other. If phones can't connect, turn on a phone hotspot and connect the laptop and phones to it, or just play in presenter mode (below).
+- Click a name in the lobby to **make that player the frog pilot**: their phone becomes a controller. Click again to remove a player.
 
-The main browser runs the game. The controller sends inputs and receives the current objective and pause/card state. It can move, hop, interact, continue field notes, and pause/resume. One controller can occupy a room at a time. Main-device keyboard control also remains available.
+### Presenter mode (no phones)
 
-Use two browser tabs to test pairing on one computer: main screen at `http://localhost:3000`, controller at `http://localhost:3000/#join`. Keep the main screen visible in a separate window so the browser does not throttle it in a background tab.
+If there's no class server (for example `npm run dev`, a static host, or school Wi-Fi blocks phones), the game still runs fully. The class shouts quiz answers and you click the one they pick, or press 1–4.
 
-If a controller disconnects, its movement stops and a replacement can rejoin with the same code. Closing/reloading the main device ends that room; create a new code. If the server connection is lost, the main browser can continue locally with its keyboard.
+## The 10-minute run sheet
 
-**Codes only work when both screens use the same running host server.** The dev server at port 5173 and the static preview server are for solo play. If you select MAIN DEVICE there, the interface explains how to start the connection server.
+| # | Chapter | What happens | Journal cards (rubric) | ~Time |
+|---|---------|--------------|------------------------|-------|
+| — | Lobby | PIN + QR, players join, the expedition map gives an overview | — | 1 min |
+| 1 | **Meet the Frog** (morning rainforest) | Explore and find 3 discoveries: the field sign, your reflection in a pond, the sea lookout. Golden flies are snacks. | 1 Name · 2 Status · 3 Habitat · 4 Physical description · 5 Picture | 1.5 min |
+| 2 | **The Hunt** (dusk) | Flick your tongue (SPACE) at crickets, snails and land crabs to fill your belly. Combos, then a snake appears. Phones drop named crickets: +150 points if the frog eats yours. | 6 Niche | 1 min |
+| 3 | **Night of Danger** (2002 →) | Chytrid arrives and the other frogs vanish (the counter crashes). Then a stealth run past the threats: hunters with flashlights (hide in bushes or get a **jump-scare**), chytrid pools, cleared forest with a feral pig, then a hurricane and volcano zone with lava cracks. Reach the burrow. | 7 Reasons it is listed | 2 min |
+| 4 | **The Rescue** (Montserrat) | Meet the researchers, find 4 lost frogs that follow you in a line, and lead them through the gate into the solar-heated chytrid-free pools. | 8 Importance · 9 Support | 1.5 min |
+| 5 | **Six Degrees** (twilight) | Hop 7 glowing stones from YOU to the frog. Each stone reveals one link in the chain. "Everything is connected." | 10 Six degrees of separation | 1 min |
+| — | Finale | Closing line, Kahoot-style podium, all 10 journal cards, sources | all 10 | 1 min |
 
-On Windows, use `npm.cmd` if PowerShell blocks the npm script shim. If another device cannot reach the printed address, check that you used the network address rather than localhost, and that the network/firewall permits access to the hosting computer. No firewall settings are changed by this project.
+A quick quiz follows each chapter (20 seconds plus reveal and scoreboard, about 30 s each), then the expedition map shows progress and the top players. Turn quizzes off in the lobby or pause menu if you're short on time.
 
-## Build and offline use
+## Rubric coverage
+
+| Rubric item (2 pts each) | Where it's shown |
+|---|---|
+| Name (common and scientific) | Card 1 — chapter 1 field sign |
+| Status | Card 2 — IUCN Red List scale with Critically Endangered highlighted |
+| Habitat (name and description) | Card 3 — map of Dominica and Montserrat, lost islands, forest and climate description |
+| Physical description | Card 4 — labelled diagram, size, colours, male and female differences |
+| Illustration / picture | Card 5 — field-guide plate (original pixel illustration), plus bonus breeding facts |
+| Niche | Card 6 — food-web diagram (secondary or tertiary consumer, top predator), after you hunt |
+| Major reasons it is listed | Card 7 — population-crash chart and six threats, after you survive them |
+| Importance | Card 8 — predator role, fallaxin antibiotic research, Dominica's coat of arms, science |
+| Support being given | Card 9 — Mountain Chicken Recovery Programme timeline, 2004–2025 |
+| Six degrees of separation | Card 10 — pet frog → pet shop → global frog trade → chytrid → islands → frog skin → mountain chicken |
+| Creativity | The whole game: playable chapters, jump-scare, class quiz, phone controls, podium |
+| Extra credit ideas | Bonus facts on card 5 (foam-nest burrows, the mum feeds tadpoles up to 25,000 eggs) and a second, climate-change chain on card 10 |
+
+Press **J** at any time (or the Journal button) to reopen any unlocked card for questions. Every card lists its sources; the full list is in [SOURCES.md](SOURCES.md) and on the finale's *Sources & credits* screen.
+
+**Add a real photo:** put a photo at `public/assets/images/mountain-chicken.jpg` (credit it in SOURCES.md) and it appears on card 5 next to the illustration.
+
+## Controls
+
+| | Keyboard | Phone pilot |
+|---|---|---|
+| Move | Arrow keys / WASD | D-pad |
+| Action (read, talk, tongue) | SPACE / E / Enter | ACTION |
+| Continue a card | Enter / Space / E / → | ACTION |
+| Field Journal | J | — |
+| Pause / presenter menu | Esc | PAUSE |
+| Quiz (presenter mode) | 1–4 to choose, Enter to continue | — |
+
+Other phones get: quiz answer buttons (red triangle, blue diamond, yellow circle, green square), reactions (🐸 ❤️ 😱 👏 🔥 🦗) that float up the projector, and **DROP A CRICKET** during the hunt. Phones never download the game engine (about 50 KB), and a phone that locks or drops rejoins with its score.
+
+## Presenter safety net
+
+The pause menu (Esc) has: Resume, Restart chapter, **Skip chapter** (it still shows that chapter's journal cards), Field Journal, **Sound / Jump-scares / Class quizzes** toggles, and *Presenter: jump to…* any chapter, quiz or the finale. Jumping ahead also unlocks the earlier cards, so the journal stays complete. Losing all three hearts just returns you to the last checkpoint.
+
+**About the jump-scare:** getting caught by a hunter's flashlight in chapter 3 flashes a pixel hunter's face with a loud sting for about a second, then explains the hunting threat. It's on by default. Switch **Jump-scares** off in the lobby or pause menu for a gentle "CAUGHT!" instead. It uses one quick zoom, not strobing, and respects the system's reduced-motion setting.
+
+**Frog numbers:** the "FROGS ALIVE" counter is a game simulation (100 → about 15 when chytrid hits → back up as you rescue frogs). Real figures are only quoted on the journal cards, for example 21 wild frogs found on Dominica in 2023.
+
+## Development
 
 ```sh
-npm run build
-npm run preview
+npm run dev        # solo development at http://127.0.0.1:5173 (this computer only)
+npm run dev:class  # dev server that phones on the same Wi-Fi can join
+npm run build      # type-check + production build into dist/
+npm run preview    # serve the build (class mode works on this computer)
+npm test           # class-server tests + content/rubric/scoring tests
 ```
 
-The build type-checks the project and produces `dist/`. Serve the entire directory through a local HTTP server. With dependencies already installed, solo play and `npm run preview` work without internet; direct `file://` launch is not supported.
+`dist/` also works on a static host (such as Firebase Hosting) or straight from a laptop, in presenter mode. Phone joining needs `server/index.mjs` (or any Node host with WebSockets) serving the build. Everything is local: fonts, art (drawn in code) and sound (synthesized with Web Audio), so the game works without internet once installed.
 
-The current art is generated locally from small reusable pixel textures. There are no remote images, fonts, media, or gameplay APIs in solo mode. Code pairing only uses the local connection server and can operate on a reachable local network without internet.
+Console helper for rehearsals: `mcGame.jump(n)` jumps to step *n* (0 = chapter 1, 1 = quiz 1, …, 10 = finale).
 
-## Hosting
-
-`dist/` is still a static solo-game build and can be deployed to Firebase Hosting or another static host. Pairing additionally needs `server/index.mjs` on a Node-compatible host with WebSocket support. Deploying only `dist/` to Firebase Hosting does not provide public online room codes. No public deployment has been configured yet.
-
-The optional relay was added in response to the later request for a main-device code and separate play screen. It extends the original single-device specification; the original brief remains preserved in `MOUNTAIN_CHICKEN_GAME_MASTER_SPEC.md`.
-
-## Current playable content
-
-- A pixel-lettered title screen with a right-arrow Play button, main-device, and join choices.
-- A connected 2400 x 1600 forest with winding trails, a stream/bridge, layered trees, rocks, ferns, leaf litter, insects, ambient frogs, and drifting particles.
-- Original brown-and-cream frog sprites with four facing directions, blinking, hop poses, normalized movement, collision boundaries, and eased camera follow.
-- A red-roofed field station and researcher, short dialogue, four objectives, and checkpoint recovery with presenter navigation.
-- Locally bundled pixel fonts and matching wood-framed HUD, lobby, and controller screens.
-- Main-device lobby, six-digit codes, join validation, controller status, and a responsive touch/keyboard play screen.
-
-This is a **playable forest preview**, not the completed 12-20 minute conservation story. Decline events, conservation activities, the six-degree trail, audio, and full rubric coverage remain future work. Visuals are stylized; the frog sprite is not an identification diagram. Species facts and asset provenance are recorded in `SOURCES.md`.
-
-## Architecture
+### Architecture
 
 ```text
 src/
-  main.ts                      Phaser setup and hot-reload cleanup
+  main.ts                 Phones (#join) load phone/PhoneApp; the projector loads game.ts (Phaser)
+  game.ts                 Phaser setup and scene list
+  data/                   journal.ts (10 rubric cards), quiz.ts, chapters.ts, sources.ts
   scenes/
-    BootScene.ts               Initial/deep-link routing
-    MenuScene.ts               Title and mode choices
-    ForestScene.ts             Gameplay, objectives, interactions, pause
-    HostScene.ts               Main-device lobby
-    ControllerScene.ts         Code entry and remote controls
-  entities/Frog.ts             Movement, visual hops, collision body
-  world/ForestWorld.ts         Local pixel textures and environment
-  systems/SessionClient.ts     Browser WebSocket session lifecycle
-  systems/CheckpointSystem.ts  Session recovery and presenter checkpoints
-  data/species.ts              Sourced species facts
-  ui/ScreenOverlay.ts          Accessible HTML overlay lifecycle
-  ui/session.css               Lobby/controller layouts
+    MenuScene, LobbyScene     Title; Kahoot-style lobby (PIN, QR, players, expedition overview)
+    ChapterScene              Shared HUD, hearts, cards, pause/presenter menu, checkpoints
+    Meet/Hunt/Danger/Rescue/ConnectScene   The five chapters
+    QuizScene, OverviewScene, FinaleScene  Quiz + scoreboard, expedition map, podium
+  phone/PhoneApp.ts       The classmate phone screens (join, answer, react, pilot)
+  systems/                ClassHost/ClassPlayer (networking), scoring, run (progress), flow,
+                          Sound (Web Audio synth), Settings
+  entities/               Frog, critters (ambient frogs, prey)
+  world/                  pixels.ts (all pixel art), Art.ts (Phaser textures), Terrain.ts (level painter)
+  ui/                     Field Journal cards and visuals, effects (jump-scare, toasts, QR), CSS
 server/
-  index.mjs                    Optional static host and pairing relay
-  session.test.mjs             Connection and static-serving tests
+  relay.mjs               PIN rooms: host + up to 60 players, validation and rate limits
+  index.mjs               Serves dist/ plus the relay (npm run host)
 ```
 
-## Checks
-
-```sh
-npm run check
-npm run build
-npm run test:connection
-npm run test:game
-```
-
-Connection tests cover code creation, incorrect codes, occupied rooms, input relay, authoritative host state, disconnect reset, replacement controllers, host shutdown, static serving, and traversal rejection. Game tests cover checkpoint snapshot isolation, restoration, bounds, and presenter prerequisites. Browser verification covers the title, gameplay, checkpoint recovery, and station layout; earlier pairing verification covers remote movement, field-board interaction, continuation, and pause/resume.
-
-Phaser's bundle triggers Vite's 500 kB size warning; builds succeed. Chromebook performance and two separate physical-device testing remain part of future presentation QA.
+The original brief is kept in `MOUNTAIN_CHICKEN_GAME_MASTER_SPEC.md`. This version goes beyond it on purpose: the phone join, quizzes and jump-scare were requested later, to make it a class game for a 10-minute presentation.

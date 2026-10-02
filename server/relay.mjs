@@ -1,0 +1,195 @@
+import { randomBytes, randomInt } from 'node:crypto';
+import { networkInterfaces } from 'node:os';
+import { WebSocketServer, WebSocket } from 'ws';
+
+/**
+ * Kahoot-style class relay. One host browser (the projector) owns all game state and scoring;
+ * phones join with a PIN and nickname. The relay only validates, rate-limits and forwards.
+ */
+export const LIMITS = { rooms: 30, playersPerRoom: 60, clients: 600, nameLength: 16, stateBytes: 3000, privateBytes: 1000 };
+export const REACTIONS = ['🐸', '❤️', '😱', '👏', '🔥', '🦗'];
+export const MODES = ['lobby', 'chapter', 'card', 'quiz', 'reveal', 'overview', 'podium', 'paused'];
+const STOPPED = { x: 0, y: 0, hop: false, interact: false, pause: false };
+
+const send = (socket, value) => { if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(value)); };
+const jsonSize = value => { try { return JSON.stringify(value).length; } catch { return Infinity; } };
+const isPlainObject = value => !!value && typeof value === 'object' && !Array.isArray(value);
+
+/** Nicknames: printable, single-spaced, at most 16 characters (counted as code points). */
+export function cleanName(value) {
+  if (typeof value !== 'string') return '';
+  const printable = value.normalize('NFC')
+    .replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff]/g, '')
+    .replace(/[<>]/g, '')
+    .replace(/\s+/g, ' ').trim();
+  return Array.from(printable).slice(0, LIMITS.nameLength).join('').trim();
+}
+
+function uniqueName(room, name) {
+  const taken = new Set([...room.players.values()].map(player => player.name.toLowerCase()));
+  if (!taken.has(name.toLowerCase())) return name;
+  for (let n = 2; n < 1000; n++) {
+    const suffix = ` ${n}`;
+    const candidate = Array.from(name).slice(0, LIMITS.nameLength - suffix.length).join('').trim() + suffix;
+    if (!taken.has(candidate.toLowerCase())) return candidate;
+  }
+  return `Frog ${randomInt(1000, 10000)}`;
+}
+
+/** Addresses classmates can type on the same network. */
+export function lanAddresses(port) {
+  const found = [];
+  for (const items of Object.values(networkInterfaces())) {
+    for (const item of items || []) if (item.family === 'IPv4' && !item.internal) found.push(`http://${item.address}:${port}`);
+  }
+  return found;
+}
+
+/** Adds the class relay to an existing HTTP server (standalone host, Vite dev or Vite preview). */
+export function attachRelay(http, { path = '/session' } = {}) {
+  const rooms = new Map();
+  const wss = new WebSocketServer({ noServer: true, maxPayload: 4096, perMessageDeflate: false });
+
+  const onUpgrade = (req, socket, head) => {
+    let pathname = '';
+    try { pathname = new URL(req.url, 'http://localhost').pathname; } catch { /* ignored */ }
+    if (pathname !== path) return; // Other upgrade handlers (such as Vite HMR) keep their connections.
+    let validOrigin = false;
+    try { validOrigin = !req.headers.origin || new URL(req.headers.origin).host === req.headers.host; } catch { /* invalid origin */ }
+    if (!validOrigin || wss.clients.size >= LIMITS.clients) { socket.destroy(); return; }
+    wss.handleUpgrade(req, socket, head, ws => wss.emit('connection', ws));
+  };
+  http.on('upgrade', onUpgrade);
+
+  const leavePilot = room => { if (room.pilot) send(room.host, { type: 'input', input: STOPPED }); };
+
+  wss.on('connection', socket => {
+    socket.alive = true;
+    let windowStart = Date.now(), messages = 0, joins = 0, lastReact = 0, lastBug = 0;
+    socket.on('error', () => {});
+    socket.on('pong', () => { socket.alive = true; });
+    socket.on('message', data => {
+      if (Date.now() - windowStart > 1000) { windowStart = Date.now(); messages = 0; }
+      if (++messages > 80) { socket.close(1008, 'Too many messages'); return; }
+      let message;
+      try { message = JSON.parse(data.toString()); } catch { send(socket, { type: 'error', message: 'Invalid message.' }); return; }
+      if (!isPlainObject(message)) return;
+      const room = rooms.get(socket.code);
+
+      if (message.type === 'host' && !socket.role) {
+        if (rooms.size >= LIMITS.rooms) { send(socket, { type: 'error', message: 'The server is full. Try again shortly.' }); return; }
+        let code;
+        do { code = String(randomInt(100000, 1000000)); } while (rooms.has(code));
+        rooms.set(code, { code, host: socket, players: new Map(), pilot: null, state: { mode: 'lobby' } });
+        socket.role = 'host'; socket.code = code;
+        send(socket, { type: 'hosted', code });
+        return;
+      }
+
+      if (message.type === 'join' && !socket.role) {
+        if (++joins > 10) { socket.close(1008, 'Too many join attempts'); return; }
+        const code = String(message.code ?? '');
+        const target = /^\d{6}$/.test(code) ? rooms.get(code) : undefined;
+        if (!target) { send(socket, { type: 'error', message: 'That PIN is not active. Check the big screen.' }); return; }
+        let player = typeof message.token === 'string' ? [...target.players.values()].find(item => item.token === message.token) : undefined;
+        if (player) {
+          if (player.socket && player.socket !== socket) { send(player.socket, { type: 'ended', reason: 'replaced' }); player.socket.code = undefined; player.socket.close(); }
+        } else {
+          const name = cleanName(message.name);
+          if (!name) { send(socket, { type: 'error', message: 'Type a nickname first.' }); return; }
+          if (target.players.size >= LIMITS.playersPerRoom) { send(socket, { type: 'error', message: 'This game is full.' }); return; }
+          player = { id: randomBytes(4).toString('hex'), token: randomBytes(12).toString('hex'), name: uniqueName(target, name), socket: null };
+          target.players.set(player.id, player);
+        }
+        player.socket = socket;
+        socket.role = 'player'; socket.code = code; socket.playerId = player.id;
+        send(socket, { type: 'joined', code, id: player.id, name: player.name, token: player.token, state: target.state, pilot: target.pilot === player.id });
+        send(target.host, { type: 'player', event: 'join', id: player.id, name: player.name });
+        return;
+      }
+
+      if (!room) return;
+
+      if (socket.role === 'host') {
+        if (message.type === 'state') {
+          const state = message.state;
+          if (!isPlainObject(state) || !MODES.includes(state.mode) || jsonSize(state) > LIMITS.stateBytes) return;
+          room.state = state;
+          for (const player of room.players.values()) send(player.socket, { type: 'state', state });
+        } else if (message.type === 'to') {
+          const player = room.players.get(String(message.id));
+          if (player && isPlainObject(message.data) && jsonSize(message.data) <= LIMITS.privateBytes) send(player.socket, { type: 'private', data: message.data });
+        } else if (message.type === 'kick') {
+          const player = room.players.get(String(message.id));
+          if (!player) return;
+          room.players.delete(player.id);
+          if (room.pilot === player.id) { leavePilot(room); room.pilot = null; }
+          if (player.socket) { send(player.socket, { type: 'kicked' }); player.socket.code = undefined; player.socket.close(); }
+          send(room.host, { type: 'player', event: 'removed', id: player.id });
+        } else if (message.type === 'pilot') {
+          const id = message.id === null ? null : String(message.id);
+          if (id !== null && !room.players.has(id)) return;
+          const previous = room.pilot;
+          if (previous === id) return;
+          if (previous) { leavePilot(room); send(room.players.get(previous)?.socket, { type: 'pilot', active: false }); }
+          room.pilot = id;
+          if (id) send(room.players.get(id).socket, { type: 'pilot', active: true });
+        }
+        return;
+      }
+
+      if (socket.role !== 'player') return;
+      const id = socket.playerId;
+      if (room.players.get(id)?.socket !== socket) return;
+      if (message.type === 'answer') {
+        if (!Number.isInteger(message.round) || !Number.isInteger(message.choice) || message.choice < 0 || message.choice > 3) return;
+        send(room.host, { type: 'answer', id, round: message.round, choice: message.choice });
+      } else if (message.type === 'react') {
+        if (!REACTIONS.includes(message.emoji) || Date.now() - lastReact < 250) return;
+        lastReact = Date.now();
+        send(room.host, { type: 'react', id, emoji: message.emoji });
+      } else if (message.type === 'bug') {
+        if (Date.now() - lastBug < 900) return;
+        lastBug = Date.now();
+        send(room.host, { type: 'bug', id });
+      } else if (message.type === 'input' && room.pilot === id) {
+        const input = message.input;
+        if (!isPlainObject(input) || !Number.isFinite(input.x) || !Number.isFinite(input.y) || Math.abs(input.x) > 1 || Math.abs(input.y) > 1) return;
+        send(room.host, { type: 'input', input: { x: input.x, y: input.y, hop: input.hop === true, interact: input.interact === true, pause: input.pause === true } });
+      }
+    });
+
+    socket.on('close', () => {
+      const room = rooms.get(socket.code);
+      if (!room) return;
+      if (socket.role === 'host' && room.host === socket) {
+        rooms.delete(socket.code);
+        for (const player of room.players.values()) { send(player.socket, { type: 'ended' }); player.socket?.close(); }
+      } else if (socket.role === 'player') {
+        const player = room.players.get(socket.playerId);
+        if (player?.socket !== socket) return;
+        player.socket = null; // Kept so the phone can rejoin with its token and keep its score.
+        if (room.pilot === player.id) leavePilot(room);
+        send(room.host, { type: 'player', event: 'leave', id: player.id });
+      }
+    });
+  });
+
+  const heartbeat = setInterval(() => {
+    for (const socket of wss.clients) {
+      if (!socket.alive) { socket.terminate(); continue; }
+      socket.alive = false; socket.ping();
+    }
+  }, 15000);
+  heartbeat.unref?.();
+
+  return {
+    rooms,
+    close: async () => {
+      clearInterval(heartbeat);
+      http.off('upgrade', onUpgrade);
+      for (const socket of wss.clients) socket.terminate();
+      await new Promise(resolve => wss.close(resolve));
+    },
+  };
+}
