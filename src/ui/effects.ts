@@ -47,16 +47,6 @@ export function banner(host: HTMLElement, title: string, subtitle = '', ms = 180
   return new Promise(resolve => window.setTimeout(() => { element.classList.add('is-leaving'); window.setTimeout(() => { element.remove(); resolve(); }, 300); }, ms));
 }
 
-/** Small non-blocking fact pop-up (e.g. the first time you meet a threat). */
-export function toast(host: HTMLElement, tag: string, text: string, kind = '', ms = 5200): void {
-  while (host.childElementCount > 1) host.firstElementChild?.remove();
-  const element = document.createElement('div');
-  element.className = `toast ${kind}`;
-  element.innerHTML = `<b>${esc(tag)}</b><span>${esc(text)}</span>`;
-  host.append(element);
-  window.setTimeout(() => { element.classList.add('is-leaving'); window.setTimeout(() => element.remove(), 400); }, ms);
-}
-
 /** Pixel-crisp QR code as inline SVG. */
 export function qrSvg(text: string): string {
   const qr = qrcode(0, 'M');

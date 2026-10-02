@@ -1,8 +1,14 @@
-# Mountain Chicken — a class pond party about a giant, disappearing frog
+# Mountain Chicken — a class frog party about a giant, disappearing frog
 
-A pixel-art party game for a ~10 minute endangered-species presentation. **One person hosts it on the projector.** Every classmate joins on their phone and becomes their own mountain chicken frog (*Leptodactylus fallax*) in a shared pond. The phone is just a **joystick**: drag to move, and your frog eats or grabs things by touching them.
+A pixel-art party game for a ~10 minute endangered-species presentation. **One person hosts it on the projector.** Every classmate joins on their phone and becomes their own mountain chicken frog (*Leptodactylus fallax*). The phone is just a **joystick**.
 
-The class splits into **Team Dominica vs Team Montserrat**, the frog's two home islands, and competes over three short rounds. Between rounds, quick learning breaks show the **Field Journal** cards: one card for each of the 10 information requirements.
+**How to play (that's all of it):**
+
+1. Move your frog with your phone.
+2. Get close to bugs to eat them.
+3. Don't get caught by humans or traps!
+
+It's **Team Dominica vs Team Montserrat**, the frog's two home islands. Most points wins.
 
 ## Run it in class
 
@@ -15,69 +21,61 @@ npm run host
 
 Leave that terminal open. On the projector laptop, open **http://localhost:3000** and press **PLAY**.
 
-- The pond shows a **join address, a code and a QR code**. Classmates scan it (or type the address and code) and pick a frog name. Their frog hops into the pond right away and they can move around to warm up.
-- Teams are balanced automatically. Click a name on a team card to move that player to the other team or remove them.
-- Press **START** (or Enter) when everyone is in.
 - Phones must be on the **same Wi-Fi** as the laptop. Many school networks block this. If phones can't connect, put the laptop and phones on a phone hotspot.
-
-### No phones?
-
-Two people can play on the laptop: **ARROWS** and **WASD** each control a frog (just start moving to join). Computer "Wild Frogs" join any team with fewer than two players, so it's always a match. This also works on `npm run dev`, a static host or an offline copy.
+- No phones? Two people can play on the laptop with **ARROWS** and **WASD**, and computer "Wild Frogs" fill any team with fewer than two players. This also works on `npm run dev`, a static host or an offline copy.
 
 ## The 10-minute run sheet
 
-| | Part | What happens | Field Journal cards | ~Time |
-|---|---|---|---|---|
-| | Lobby | Code and QR, frogs hop in as people join | — | 1 min |
-| 1 | Learning break | *Meet the mountain chicken* | 1 Name · 2 Status · 3 Habitat | 1 min |
-| 2 | **Round 1: Feeding Frenzy** | Everyone hunts at once: cricket 1, land crab 3, golden cricket 5 | — | 1 min |
-| 3 | Learning break | *The frog you just played* | 4 Physical description · 5 Picture · 6 Niche | 1.5 min |
-| 4 | **Round 2: Night of Danger** | Grab glowing bugs in the dark. Hunters sweep flashlights: get caught and you lose 3 points and get a **jump-scare** on your phone (the first catch also gets one on the projector). Hide in bushes; green chytrid pools slow you down. | — | 1 min |
-| 5 | Learning break | *Why it is disappearing* | 7 Reasons it is listed | 1 min |
-| 6 | **Round 3: Rescue Relay** | Carry lost frogs, one at a time, into your team's solar-heated pool (+5). The feral pig knocks them loose. | — | 1 min |
-| 7 | Learning break | *Saving the mountain chicken* | 8 Importance · 9 Support · 10 Six degrees | 1.5 min |
-| | Final results | Winning team, top-3 podium, all 10 journal cards, sources | all 10 | 1 min |
+Press **Enter** (or click the big button) to move on at every step.
 
-After each round, a results card shows which team won the round and the top three frogs. Facts pop up during the rounds too (for example, hunting statistics during the night round).
+| Part | What happens | ~Time |
+|---|---|---|
+| Intro | "This is a MOUNTAIN CHICKEN." A chicken wanders in… and a giant frog leaps in and eats it. Reveal: the mountain chicken is a **frog**, *Leptodactylus fallax*, **Critically Endangered**. | 15 s |
+| Lobby | Join address, code and QR code. Frogs drop into the pond as people join. Teams balance automatically (click a name to move or remove someone). | 1–2 min |
+| How to play | The three rules, big. Starts by itself after 12 seconds. | 15 s |
+| **The game** | 2½ minutes. It gets darker as it goes. Hunters with flashlights walk in and catch frogs (−3 points); later they set cage traps. Surprises: bug swarms, a 10-point golden cricket, and double points at the end. | 2.5 min |
+| Results | Winning team, top-3 podium. | 30 s |
+| The real story | The 10 fact cards, one per rubric item (short: a title, one line, up to four points). | 4 min |
+| Thank you | Tips to help, all 10 cards to reopen for questions, and sources. | 30 s |
+
+## Jump-scares
+
+- **Getting caught:** the caught player's phone flashes a hunter's face with a sting sound and a buzz. The **first** catch of the game also shows it full-screen on the projector, with a real hunting fact.
+- **The secret scare:** once per game, at a random moment, **2–3 random phones** (1 in a group of three or fewer) suddenly show "Connection lost… hold your phone still". A few seconds later a screaming face fills the screen with a loud shriek and a long buzz. Then it tells them they got the secret scare and to keep it quiet. Nobody else knows it's coming.
+
+Switch **Jump-scares** off in the presenter menu (**Esc**) for a gentle "CAUGHT!" and no secret scare. The scares are one quick zoom, not strobing. Tell everyone to turn their phone sound up for the full effect (the buzz only works on Android phones).
 
 ## Rubric coverage
 
-| Rubric item (2 pts each) | Card | Shown in |
-|---|---|---|
-| Name (common and scientific) | 1 | Learning break 1 |
-| Status | 2 | Learning break 1 (IUCN Red List scale) |
-| Habitat (name and description) | 3 | Learning break 1 (island map and climate) |
-| Physical description | 4 | Learning break 2 (labelled diagram) |
-| Illustration / picture | 5 | Learning break 2 (field-guide plate) |
-| Niche | 6 | Learning break 2, right after the feeding round (food web) |
-| Major reasons it is listed | 7 | Learning break 3, right after the night round (population-crash chart, six threats) |
-| Importance | 8 | Learning break 4 |
-| Support being given | 9 | Learning break 4 (recovery programme timeline) |
-| Six degrees of separation | 10 | Learning break 4 (pet frog → … → mountain chicken) |
-| Creativity | — | The whole game: phone joysticks, teams, three rounds, jump-scare |
-| Extra credit ideas | 5, 10 | Bonus breeding facts on card 5; a second, climate-change chain on card 10 |
+| Rubric item (2 pts each) | Where |
+|---|---|
+| Name (common and scientific) | Intro reveal and card 1 |
+| Status | Intro stamp and card 2 (IUCN Red List scale) |
+| Habitat (name and description) | Card 3 (island map) |
+| Physical description | Card 4 |
+| Illustration / picture | Card 5 (field-guide plate), plus the pixel frog everywhere |
+| Niche | Card 6 (food chain); in the game you're a predator eating bugs |
+| Major reasons it is listed | Card 7 (population-crash chart); in the game, hunters and traps |
+| Importance | Card 8 (Dominica's coat of arms) |
+| Support being given | Card 9 (recovery timeline) |
+| Six degrees of separation | Card 10 (you → pet frog → … → mountain chicken) |
+| Creativity | The intro gag, phone joysticks, teams, hunters, traps, the secret scare |
+| Extra credit ideas | Bonus facts on card 5; a second, climate chain on card 10 |
 
-Press **J** (outside a round) to open the Field Journal and reopen any card. Every card lists its sources; the full list is in [SOURCES.md](SOURCES.md) and on the final *Sources & credits* screen.
+The title screen's **FACT CARDS** button opens the cards any time (so you can present them before the game instead). Every card lists its sources; the full list is in [SOURCES.md](SOURCES.md) and on the *Sources* screen at the end.
 
 **Add a real photo:** put one at `public/assets/images/mountain-chicken.jpg` (credit it in SOURCES.md) and it appears on card 5.
 
-## Controls
+## Presenter controls
 
-| Who | How |
+| Key | Does |
 |---|---|
-| Classmates | Phone joystick: drag to move. Touching does everything else (eat, grab, deliver). |
-| Laptop players | ARROWS, or WASD |
-| Presenter | **Enter / Space** to go on (start, start round, next) · cards: Enter / Space / → · **Esc** presenter menu · **J** Field Journal |
+| Enter / Space | Next (skip the intro, start, go, next card) |
+| ← | Previous card |
+| Esc | Presenter menu: Resume, End game now, Back to lobby, Fact cards, Sound and Jump-scare switches, Quit to title |
+| J | Fact cards (in the lobby) |
 
-During learning breaks and results, phones show the topic and six reaction buttons (🐸 ❤️ 😱 👏 🔥 🦗) that float up the projector. Phones download a tiny page (about 50 KB, no game engine). A phone that locks or drops rejoins with the same frog and points.
-
-## Presenter safety net
-
-**Esc** opens the presenter menu: Resume, **End round now**, **Skip ahead**, Field Journal, Back to lobby (keeps players, resets scores), **Sound** and **Jump-scare** toggles, Quit to title.
-
-**About the jump-scare:** in the night round, a caught player's phone flashes a pixel hunter's face with a sting sound and a buzz. The first catch of the round also shows it full-screen on the projector, with the real hunting fact. Switch **Jump-scares** off in the lobby or menu for a gentle "CAUGHT!" instead. It's one quick zoom, not strobing, and respects the system's reduced-motion setting.
-
-Points are just for the game. Real numbers only appear on the journal cards, for example 21 wild frogs found on Dominica in 2023.
+Phones download a tiny page (about 50 KB, no game engine). A phone that locks or drops rejoins with the same frog and points. During the cards, phones show reaction buttons (🐸 ❤️ 😱 👏 🔥 🦗) that float up the projector.
 
 ## Development
 
@@ -96,17 +94,18 @@ npm test           # class-server tests + content, rubric and team-logic tests
 ```text
 src/
   main.ts                 Phones (#join) load phone/PhoneApp; the projector loads game.ts (Phaser)
-  data/                   journal.ts (the 10 rubric cards), rounds.ts (rounds + run order), sources.ts
+  data/                   journal.ts (the 10 fact cards), game.ts (rules, timeline of events), sources.ts
   scenes/
     MenuScene             Title
-    PondScene             Lobby, learning breaks, round intros/countdown, rounds, results (one shared pond)
-    FinaleScene           Winning team, podium, completed journal, sources
-  rounds/                 FeastRound, NightRound, RescueRound (each: start, update, botTarget, end)
-  entities/               PartyFrog (a player's frog), Critters (prey, decorative frogs)
-  phone/PhoneApp.ts       Join screen and joystick
+    IntroScene            The chicken gag and the name/status reveal
+    PondScene             Lobby, "How to play", countdown and the game (one shared pond)
+    FinaleScene           Winning team and podium, the fact cards, thank-you and sources
+  play/PondGame.ts        The game itself: bugs and licking, hunters, traps, events, computer frogs
+  entities/               PartyFrog (a player's frog and its animation), Critters (bugs, decorative frogs)
+  phone/PhoneApp.ts       Join screen, joystick, caught scare and the secret scare
   systems/                ClassHost / ClassPlayer (networking), match (teams, totals, ranking), Sound, Settings
   world/                  pixels.ts (all pixel art), Art.ts (Phaser textures), Terrain.ts (ground painter)
-  ui/                     Field Journal cards and visuals, effects (jump-scare, toasts, QR), CSS
+  ui/                     Fact cards and visuals, effects (jump-scare, banners, QR), rules, CSS
 server/
   relay.mjs               Join rooms: host + up to 60 players, joystick relay, validation, rate limits
   index.mjs               Serves dist/ plus the relay (npm run host)

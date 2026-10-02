@@ -1,53 +1,59 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { JOURNAL, RUBRIC_KEYS, SIX_DEGREES } from '../src/data/journal.ts';
+import { JOURNAL, RUBRIC_KEYS, SIX_DEGREES, BONUS_CHAIN } from '../src/data/journal.ts';
 import { SOURCES } from '../src/data/sources.ts';
-import { STEPS, ROUNDS } from '../src/data/rounds.ts';
+import { GAME, secretScareCount } from '../src/data/game.ts';
 
-test('every rubric bullet has exactly one complete, sourced Field Journal card', () => {
+test('every rubric bullet has exactly one short, sourced fact card', () => {
   assert.equal(RUBRIC_KEYS.length, 10, 'the assignment has 10 information bullets');
   const ids = new Set(SOURCES.map(source => source.id));
   for (const key of RUBRIC_KEYS) {
     const cards = JOURNAL.filter(card => card.key === key);
     assert.equal(cards.length, 1, `${key} has one card`);
     const [card] = cards;
-    assert.ok(card.title && card.lead && card.rubric, `${key} has a title, lead and rubric label`);
-    assert.ok(card.facts.length >= 3, `${key} shows at least three facts`);
+    assert.ok(card.title && card.line && card.rubric, `${key} has a title, a line and a rubric label`);
+    assert.ok(card.points.length <= 4, `${key} keeps to four points or fewer`);
+    for (const point of card.points) assert.ok(point.length <= 60, `"${point}" is short enough to read from the back`);
+    assert.ok(card.line.length <= 80, `${key}'s line is short`);
     assert.ok(card.sources.length > 0 && card.sources.every(id => ids.has(id)), `${key} cites known sources`);
-    assert.doesNotMatch(JSON.stringify(card), /VERIFIED CONTENT NEEDED|TODO|lorem/i);
+    assert.doesNotMatch(JSON.stringify(card), /TODO|lorem/i);
   }
   assert.deepEqual(JOURNAL.map(card => card.number), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 });
 
-test('the learning breaks show every card exactly once, between the rounds', () => {
-  const shown = STEPS.flatMap(step => step.kind === 'learn' ? step.cards : []);
-  assert.deepEqual([...shown].sort(), [...RUBRIC_KEYS].sort());
-  assert.equal(new Set(shown).size, shown.length);
-  assert.deepEqual(STEPS.map(step => step.kind), ['learn', 'round', 'learn', 'round', 'learn', 'round', 'learn', 'final']);
+test('the cards name the species, its status and its habitat', () => {
+  const text = key => JSON.stringify(JOURNAL.find(card => card.key === key));
+  assert.match(text('name'), /Mountain chicken/);
+  assert.match(text('name'), /Leptodactylus fallax/);
+  assert.match(text('status'), /Critically Endangered/);
+  assert.match(text('habitat'), /Dominica/);
+  assert.match(text('habitat'), /forest/);
+  assert.match(text('niche'), /consumer/);
 });
 
-test('name card states both the common and scientific name; status names the category', () => {
-  const name = JOURNAL.find(card => card.key === 'name');
-  assert.match(JSON.stringify(name), /Mountain chicken/);
-  assert.match(JSON.stringify(name), /Leptodactylus fallax/);
-  assert.match(JSON.stringify(JOURNAL.find(card => card.key === 'status')), /Critically Endangered/);
-  const habitat = JSON.stringify(JOURNAL.find(card => card.key === 'habitat'));
-  assert.match(habitat, /Dominica/); assert.match(habitat, /Description/);
-});
-
-test('six degrees runs from YOU to the frog through five connections', () => {
+test('six degrees runs from YOU to the frog through five connections, plus a bonus chain', () => {
   assert.equal(SIX_DEGREES.length, 7);
   assert.equal(SIX_DEGREES[0].step, 'YOU');
   assert.equal(SIX_DEGREES.at(-1).step, 'FROG');
+  assert.ok(BONUS_CHAIN.length >= 4);
 });
 
-test('three short rounds fit a 10-minute presentation', () => {
-  const rounds = STEPS.filter(step => step.kind === 'round').map(step => ROUNDS[step.round]);
-  assert.deepEqual(rounds.map(round => round.number), [1, 2, 3]);
-  const seconds = rounds.reduce((sum, round) => sum + round.seconds, 0);
-  assert.ok(seconds >= 150 && seconds <= 240, `rounds take ${seconds}s`);
-  for (const round of rounds) {
-    assert.ok(round.goal && round.tip && round.title);
-    for (const fact of round.facts) assert.ok(fact.at > 0 && fact.at < round.seconds);
+test('one game mode that fits a 10-minute presentation', () => {
+  assert.ok(GAME.seconds >= 120 && GAME.seconds <= 180, `the game lasts ${GAME.seconds}s`);
+  assert.equal(GAME.rules.length, 3, 'three simple rules');
+  let last = 0;
+  for (const event of GAME.events) {
+    assert.ok(event.at > last && event.at < GAME.seconds, `${event.title} happens in order, during the game`);
+    last = event.at;
   }
+  assert.ok(GAME.events.some(event => event.kind === 'hunter' && event.at < 15), 'humans show up early');
+  assert.ok(GAME.secretScare.from > 0 && GAME.secretScare.to < GAME.seconds - 20, 'the secret scare happens mid-game');
+});
+
+test('the secret scare only ever reaches a handful of phones', () => {
+  assert.equal(secretScareCount(0), 0);
+  assert.equal(secretScareCount(1), 1);
+  assert.equal(secretScareCount(3), 1);
+  assert.equal(secretScareCount(5), 2);
+  for (const phones of [9, 20, 30, 60]) assert.equal(secretScareCount(phones), 3);
 });

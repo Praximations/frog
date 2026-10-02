@@ -5,8 +5,8 @@ import { settings } from './Settings';
  * nothing if audio is blocked. Browsers only allow sound after a click or key press (unlock()).
  */
 export type Sfx = 'click' | 'hop' | 'tongue' | 'gulp' | 'catch' | 'card' | 'stamp' | 'unlock' | 'hurt' | 'spotted' | 'scare'
-  | 'correct' | 'wrong' | 'tick' | 'join' | 'react' | 'whoop' | 'splash' | 'rescue' | 'victory' | 'heal' | 'wind' | 'spore' | 'faint' | 'step' | 'crash' | 'chime';
-export type Music = 'lobby' | 'forest' | 'night' | 'rescue' | 'finale' | null;
+  | 'correct' | 'wrong' | 'tick' | 'join' | 'react' | 'whoop' | 'victory' | 'chime' | 'cluck' | 'burp' | 'thud' | 'rumble' | 'trap' | 'shriek' | 'whistle';
+export type Music = 'lobby' | 'forest' | 'game' | 'finale' | null;
 
 const midi = (note: number) => 440 * 2 ** ((note - 69) / 12);
 const chance = (p: number) => Math.random() < p;
@@ -32,6 +32,8 @@ class SoundSystem {
   unlock(): void {
     try {
       if (!this.ctx) {
+        // iPhones: play through the silent switch, like a game would.
+        try { const session = (navigator as unknown as { audioSession?: { type: string } }).audioSession; if (session) session.type = 'playback'; } catch { /* optional */ }
         const Context = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
         if (!Context) return;
         this.ctx = new Context();
@@ -105,7 +107,6 @@ class SoundSystem {
   private sfx(name: Sfx, level: number, t: number): void {
     switch (name) {
       case 'click': this.tone(t, 880, 0.05, { gain: 0.05 }); break;
-      case 'step': this.tone(t, 180 + Math.random() * 40, 0.05, { type: 'triangle', gain: 0.03 }); break;
       case 'hop': this.tone(t, 300, 0.08, { type: 'triangle', slide: 560, gain: 0.05 }); break;
       case 'tongue': this.tone(t, 700, 0.07, { slide: 1800, gain: 0.05 }); this.noise(t, 0.05, { type: 'highpass', freq: 4000, gain: 0.04 }); break;
       case 'gulp': this.tone(t, 420, 0.14, { type: 'sine', slide: 110, gain: 0.18 }); break;
@@ -135,14 +136,30 @@ class SoundSystem {
       case 'join': this.tone(t, 520 + Math.random() * 200, 0.09, { type: 'sine', slide: 1300, gain: 0.08 }); break;
       case 'react': this.tone(t, 900 + Math.random() * 500, 0.06, { type: 'triangle', gain: 0.035 }); break;
       case 'whoop': this.whoop(t, this.sfxBus!, 0.12); break;
-      case 'splash': this.noise(t, 0.35, { type: 'lowpass', freq: 1800, slide: 300, gain: 0.12 }); break;
-      case 'rescue': [659, 784, 988, 1319].forEach((f, i) => this.tone(t + i * 0.07, f, 0.2, { type: 'square', gain: 0.05, filter: 3000 })); break;
-      case 'heal': this.tone(t, 400, 0.4, { type: 'sine', slide: 1200, gain: 0.07 }); break;
+      case 'cluck': {
+        // "buk-buk-BAWK"
+        [0, 0.11].forEach(dt => this.tone(t + dt, 520 + Math.random() * 60, 0.06, { type: 'square', slide: 380, gain: 0.07, filter: 2200 }));
+        this.tone(t + 0.24, 760, 0.2, { type: 'square', slide: 520, gain: 0.08, filter: 2600, vibrato: 30 });
+        break;
+      }
+      case 'burp': this.tone(t, 120, 0.55, { type: 'sawtooth', slide: 70, gain: 0.22, filter: 700, vibrato: 14 }); this.noise(t, 0.4, { type: 'lowpass', freq: 500, gain: 0.08 }); break;
+      case 'thud': this.tone(t, 110, 0.3, { type: 'sine', slide: 38, gain: 0.5 }); this.noise(t, 0.18, { type: 'lowpass', freq: 500, gain: 0.25 }); break;
+      case 'rumble': this.noise(t, 1.4, { type: 'lowpass', freq: 160, gain: 0.35, attack: 0.35 }); this.tone(t, 46, 1.4, { type: 'sine', gain: 0.3, attack: 0.3, vibrato: 3 }); break;
+      case 'trap':
+        if (level) { this.tone(t, 1900, 0.04, { type: 'square', gain: 0.08 }); this.noise(t, 0.12, { type: 'highpass', freq: 3000, gain: 0.12 }); this.tone(t, 150, 0.2, { type: 'sine', slide: 60, gain: 0.3 }); }
+        else this.noise(t, 0.1, { type: 'bandpass', freq: 900, gain: 0.1, q: 3 });
+        break;
+      case 'shriek': {
+        // The secret scare: as loud and harsh as Web Audio gets, then it cuts off.
+        this.noise(t, 1.5, { type: 'bandpass', freq: 2600, slide: 1300, gain: 1, q: 0.5 });
+        this.tone(t, 1250, 1.5, { type: 'sawtooth', slide: 820, gain: 0.6, vibrato: 55 });
+        this.tone(t, 1330, 1.4, { type: 'sawtooth', slide: 870, gain: 0.5, vibrato: 70, detune: 30 });
+        this.tone(t, 640, 1.3, { type: 'square', slide: 400, gain: 0.35, vibrato: 40 });
+        this.tone(t, 70, 0.9, { type: 'sine', slide: 34, gain: 1 });
+        break;
+      }
+      case 'whistle': this.tone(t, 1800, 0.18, { type: 'sine', gain: 0.1, vibrato: 60 }); this.tone(t + 0.22, 1800, 0.5, { type: 'sine', gain: 0.1, vibrato: 60 }); break;
       case 'victory': [523, 659, 784, 1047, 784, 1047].forEach((f, i) => this.tone(t + i * 0.11, f, i === 5 ? 0.8 : 0.16, { type: 'square', gain: 0.06, filter: 3500 })); break;
-      case 'wind': this.noise(t, 1.8, { type: 'bandpass', freq: 300, slide: 1100, gain: 0.12, attack: 0.5, q: 2 }); break;
-      case 'spore': this.noise(t, 0.4, { type: 'highpass', freq: 3000, gain: 0.06, attack: 0.05 }); this.tone(t, 300, 0.4, { type: 'sine', slide: 240, gain: 0.05, vibrato: 20 }); break;
-      case 'faint': [523, 466, 415, 349].forEach((f, i) => this.tone(t + i * 0.18, f, 0.3, { type: 'triangle', gain: 0.08 })); break;
-      case 'crash': [784, 622, 466, 330, 233].forEach((f, i) => this.tone(t + i * 0.22, f, 0.4, { type: 'sawtooth', gain: 0.06, filter: 1400 })); this.tone(t, 70, 1.6, { type: 'sine', gain: 0.25 }); break;
     }
   }
 
@@ -159,10 +176,7 @@ class SoundSystem {
     this.current = name;
     if (!name) return;
     this.step = 0; this.nextTime = this.ctx.currentTime + 0.08;
-    const beds: Partial<Record<Exclude<Music, null>, [number, number]>> = { forest: [900, 0.022], night: [420, 0.03], rescue: [1100, 0.016] };
-    const bed = beds[name];
-    if (bed) this.startBed(bed[0], bed[1]);
-    if (name === 'night') this.startDrone();
+    if (name === 'forest') this.startBed(900, 0.022);
     this.timer = window.setInterval(() => this.schedule(), 25);
   }
 
@@ -185,21 +199,10 @@ class SoundSystem {
     this.beds.push({ stop: () => { try { level.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.3); source.stop(ctx.currentTime + 1.2); } catch { /* stopped */ } } });
   }
 
-  private startDrone(): void {
-    const ctx = this.ctx!;
-    const level = ctx.createGain(); level.gain.value = 0.0001; level.gain.exponentialRampToValueAtTime(0.03, ctx.currentTime + 3);
-    const filter = ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 280;
-    filter.connect(level); level.connect(this.musicBus!);
-    const oscillators = [45, 45.12, 52].map(note => {
-      const osc = ctx.createOscillator(); osc.type = 'sawtooth'; osc.frequency.value = midi(note) / 2; osc.connect(filter); osc.start(); return osc;
-    });
-    this.beds.push({ stop: () => { try { level.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.3); oscillators.forEach(osc => osc.stop(ctx.currentTime + 1.2)); } catch { /* stopped */ } } });
-  }
-
   private schedule(): void {
     const ctx = this.ctx;
     if (!ctx || !this.current) return;
-    const bpm = { lobby: 124, finale: 118, forest: 84, night: 72, rescue: 96 }[this.current];
+    const bpm = { lobby: 124, finale: 118, forest: 84, game: 136 }[this.current];
     const sixteenth = 60 / bpm / 4;
     if (this.nextTime < ctx.currentTime - 0.5) this.nextTime = ctx.currentTime + 0.05; // tab was hidden
     while (this.nextTime < ctx.currentTime + 0.12) {
@@ -231,17 +234,24 @@ class SoundSystem {
       if (s === 0 || s === 8) this.drum('kick', t);
       if (s === 4 || s === 12) this.drum('snare', t);
       if (s % 4 === 2) this.drum('hat', t);
-    } else if (track === 'forest' || track === 'rescue') {
-      const scale = track === 'rescue' ? [67, 69, 71, 74, 76, 79, 81, 83] : [60, 62, 64, 67, 69, 72, 74, 76];
-      if (step % 2 === 0 && chance(track === 'rescue' ? 0.22 : 0.13)) pluck(pick(scale), 0.035, 0.6, 'sine');
+    } else if (track === 'forest') {
+      const scale = [60, 62, 64, 67, 69, 72, 74, 76];
+      if (step % 2 === 0 && chance(0.13)) pluck(pick(scale), 0.035, 0.6, 'sine');
       if (step % 32 === 0) pluck(scale[0] - 12, 0.03, 1.8, 'sine');
       if (chance(0.025)) [2600, 3100, 2800].forEach((f, i) => this.tone(t + i * 0.07, f, 0.06, { type: 'sine', slide: f * 1.25, gain: 0.015, dest }));
       if (chance(0.012)) this.whoop(t, dest, 0.05);
-    } else if (track === 'night') {
-      const s = step % 32;
-      if (s === 0 || s === 3) this.tone(t, 70, 0.2, { type: 'sine', slide: 40, gain: 0.18, dest });
-      if (step % 4 === 0 && chance(0.3)) [0, 0.045, 0.09].forEach(dt => this.tone(t + dt, 4600, 0.025, { type: 'triangle', gain: 0.012, dest }));
-      if (chance(0.006)) this.tone(t, midi(pick([69, 70, 75])), 2.4, { type: 'sine', gain: 0.025, vibrato: 4, dest, attack: 0.6 });
+    } else if (track === 'game') {
+      // Sneaky, driving minor-key groove: A minor, F, G, E.
+      const bar = Math.floor(step / 16) % 4, s = step % 16;
+      const root = [45, 41, 43, 40][bar];
+      if (s % 2 === 0) this.tone(t, midi(root - 12 + (s % 4 === 2 ? 12 : 0)), sixteenth * 1.6, { type: 'sawtooth', gain: 0.05, filter: 600, dest });
+      if (s % 4 === 0) this.drum('kick', t);
+      if (s === 4 || s === 12) this.drum('snare', t, .8);
+      if (s % 2 === 1) this.drum('hat', t, .7);
+      const riff: Record<number, number> = { 0: 69, 3: 72, 6: 69, 8: 76, 10: 75, 12: 72, 14: 69 };
+      const note = riff[s];
+      if (note && step % 64 < 32) this.tone(t, midi(note + (root - 45)), sixteenth * 1.4, { type: 'square', gain: 0.022, filter: 1800, dest });
+      if (step % 64 >= 32 && s % 4 === 2 && chance(0.5)) pluck(pick([81, 84, 88, 86]) + (root - 45), 0.02, 0.25, 'triangle');
     }
   }
 }

@@ -3,6 +3,7 @@ import type { PrivateMessage } from '../systems/ClassHost';
 import { TEAMS } from '../systems/match';
 import { sound } from '../systems/Sound';
 import { artUrl } from '../world/pixels';
+import { rulesHtml } from '../ui/rules';
 import { esc, $ } from '../ui/html';
 
 const REACTIONS = ['🐸', '❤️', '😱', '👏', '🔥', '🦗'];
@@ -21,6 +22,7 @@ export class PhoneApp {
   private sent = { x: 0, y: 0, at: 0 };
   private timer?: number;
   private keys = new Set<string>();
+  private shocking = false;
 
   start(): void {
     document.body.classList.add('controller-mode');
@@ -92,13 +94,7 @@ export class PhoneApp {
     this.setStick(0, 0);
     const main = $(this.root, '#phone-main');
     if (state.mode === 'learn') {
-      main.innerHTML = `<div class="phone-card center"><span class="micro">LEARNING BREAK</span><h2>${esc(state.title)}</h2><p>👀 Watch the big screen!</p></div>${this.reactionRow()}`;
-    } else if (state.mode === 'results') {
-      const mine = team !== null && state.winner === team;
-      main.innerHTML = `<div class="phone-card center result ${state.winner === -1 ? '' : mine ? 'is-right' : 'is-wrong'}"><span class="micro">${esc(state.title.toUpperCase())}</span>
-        <h2>${state.winner === -1 ? 'A draw!' : mine ? 'Your team won!' : `${esc(TEAMS[state.winner].name)} won`}</h2>
-        <p>You have <b>${classPlayer.score}</b> points</p></div>${this.reactionRow()}`;
-      buzz(mine ? [40, 60, 40] : 120);
+      main.innerHTML = `<div class="phone-card center"><span class="micro">${esc(state.title.toUpperCase())}</span><h2>👀 Look at the big screen!</h2><p>Send a reaction:</p></div>${this.reactionRow()}`;
     } else if (state.mode === 'final') {
       const final = classPlayer.final;
       const medal = final ? ['🥇', '🥈', '🥉'][final.rank - 1] ?? '🐸' : '🐸';
@@ -118,7 +114,7 @@ export class PhoneApp {
     const main = $(this.root, '#phone-main');
     main.innerHTML = `<div class="phone-status" id="status"></div>
       <div class="stick" id="stick" aria-label="Joystick: drag to move your frog"><div class="stick-ring"></div><div class="stick-knob" id="knob"><img class="pixel" src="${artUrl('frog-up-0', 4)}" alt=""></div></div>
-      <p class="phone-note">Drag to move your frog. It eats and grabs things by touching them.</p>`;
+      <p class="phone-note">Drag to move. Get close to bugs to eat them!</p>`;
     this.bindStick($(main, '#stick'));
   }
 
@@ -128,10 +124,10 @@ export class PhoneApp {
     const state = classPlayer.state;
     const team = classPlayer.team;
     const teamLine = team !== null ? `<span class="status-team" style="background:${TEAMS[team].color}">${TEAMS[team].name.toUpperCase()}</span>` : '';
-    const text = state.mode === 'lobby' ? `${teamLine}<b>Find your frog on the big screen!</b><span>Move around to warm up.</span>`
-      : state.mode === 'intro' ? `${teamLine}<b>${esc(state.title)}</b><span>${esc(state.goal)}</span>`
-        : state.mode === 'round' ? `${teamLine}<b>${esc(state.goal)}</b><span>Your points: ${classPlayer.score}</span>`
-          : `<b>Paused</b><span>The presenter paused the game.</span>`;
+    const text = state.mode === 'lobby' ? `${teamLine}<b>You're in! Find your frog on the big screen.</b><span>Move around to warm up.</span>`
+      : state.mode === 'intro' ? `${teamLine}${rulesHtml(true)}`
+        : state.mode === 'round' ? `${teamLine}<b>Eat bugs! Don't get caught!</b><span>Your points: ${classPlayer.score}</span>`
+          : '<b>Paused</b><span>Look at the big screen.</span>';
     if (status.innerHTML !== text) status.innerHTML = text;
     status.classList.toggle('is-round', state.mode === 'round');
   }
@@ -141,7 +137,8 @@ export class PhoneApp {
   }
 
   private onPrivate(message: PrivateMessage): void {
-    if (message.kind === 'caught') this.caught(message.scare);
+    if (message.kind === 'caught') { if (!this.shocking) this.caught(message.scare); }
+    else if (message.kind === 'shock') this.shock();
     else if (message.kind === 'you') { buzz(30); this.updateStatus(); }
   }
 
@@ -155,6 +152,34 @@ export class PhoneApp {
     sound.play(scare ? 'scare' : 'hurt');
     buzz(scare ? [300, 80, 300] : 150);
     window.setTimeout(() => layer.remove(), scare ? 1600 : 1200);
+  }
+
+  /**
+   * The secret scare, for 2–3 random players: the screen fakes a lost connection so they look
+   * closely at their phone… then a screaming face fills it. Then we let them in on the secret.
+   */
+  private shock(): void {
+    if (this.shocking) return;
+    this.shocking = true;
+    this.keys.clear(); this.setStick(0, 0);
+    const fx = $(this.root, '#phone-fx');
+    const layer = document.createElement('div');
+    layer.className = 'phone-lure';
+    layer.innerHTML = '<div class="lure-box"><div class="spinner"></div><b>Connection lost</b><span>Reconnecting… hold your phone still</span></div>';
+    fx.replaceChildren(layer);
+    window.setTimeout(() => {
+      layer.className = 'phone-shock';
+      layer.innerHTML = `<img class="pixel" src="${artUrl('shock', 8)}" alt="">`;
+      sound.play('shriek');
+      buzz([700, 60, 700, 60, 1000]);
+    }, 2800);
+    window.setTimeout(() => {
+      layer.className = 'phone-secret';
+      layer.innerHTML = '<div class="phone-card center"><div class="medal">😈</div><h2>SECRET SCARE!</h2><p>Only 2 or 3 people got that one.</p><p><b>Shh… don\'t tell anyone!</b> 🤫</p><button id="shock-ok">Back to the game ▸</button></div>';
+      const close = () => { layer.remove(); this.shocking = false; };
+      layer.querySelector('#shock-ok')?.addEventListener('click', close);
+      window.setTimeout(() => { if (layer.isConnected) close(); }, 3500);
+    }, 4600);
   }
 
   private ended(): void {
@@ -191,6 +216,7 @@ export class PhoneApp {
   }
 
   private setStick(x: number, y: number): void {
+    if (this.shocking) { x = 0; y = 0; }
     this.stick = { x: Math.round(x * 100) / 100, y: Math.round(y * 100) / 100 };
     const knob = this.root.querySelector<HTMLElement>('#knob');
     if (knob) knob.style.transform = `translate(${this.stick.x * 78}%, ${this.stick.y * 78}%)`;

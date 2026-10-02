@@ -1,6 +1,6 @@
 # Sources and content notes
 
-Facts were checked on 2 October 2026. Every Field Journal card lists the sources it uses (`src/data/journal.ts`), and the finale's *Sources & credits* screen repeats this list.
+Facts were checked on 2 October 2026. Every fact card lists the sources it uses (`src/data/journal.ts`), and the *Sources* screen at the end repeats this list.
 
 | Fact(s) in the game | Source |
 |---|---|
@@ -14,6 +14,7 @@ Facts were checked on 2 October 2026. Every Field Journal card lists the sources
 | "Crapaud" was Dominica's national dish; 8,000–36,000 frogs taken a year; hunting banned 2004; songs and calypsos | [bioGraphic: Song of the mountain chicken](https://www.biographic.com/song-of-the-mountain-chicken/) |
 | Soufrière Hills volcano erupted in 1995; lava destroyed ~10% of the habitat; ash and acid rain | [Reptiles Magazine](https://reptilesmagazine.com/the-plight-of-the-mountain-chicken-frog/) |
 | Hurricane Maria (2017) hit the already small Dominica population | [Discover Montserrat (2023)](https://discovermni.com/2023/11/21/surviving-the-unthinkable-the-mountain-chicken-frogs-odyssey-to-existence/) |
+| Population down more than 99% since chytrid struck in 2002 | [ZSL news, 16 October 2023](https://www.zsl.org/news-and-events/news/giant-chicken-brink-extinction) |
 | 2023 survey: 21 living wild frogs found on Dominica; 28 experts over 26 nights | [CNN via Citizen Digital (2023)](https://www.citizen.digital/news/an-island-frog-became-a-national-delicacy-now-there-are-only-21-left-in-the-wild-scientists-say-n329883) |
 | No mountain chickens seen in the wild on Montserrat's 2022 survey | [Discover Montserrat (2022)](https://discovermni.com/2022/06/14/no-mountain-chickens-sighted-in-the-wild-on-latest-annual-survey/) |
 | Survivors swabbed to study resistance; chytrid has driven declines in 500+ amphibian species | [Mongabay (2023)](https://news.mongabay.com/2023/10/sliver-of-hope-as-mountain-chicken-frog-shows-resistance-to-deadly-disease/) |
@@ -29,8 +30,9 @@ Facts were checked on 2 October 2026. Every Field Journal card lists the sources
 
 ## What is a game choice, not a fact
 
-- **Points and team scores** are only for the game. Real numbers appear only on the Field Journal cards and in the facts that pop up during rounds.
-- The rounds are a way to *experience* each topic, not a simulation: eating bugs (niche), hunters' flashlights, chytrid pools and the dark (threats), and frogs carrying lost frogs to warm pools (rescue). Adult frogs don't really carry other frogs. The cards say what is actually known. The jump-scare caption only states the sourced fact ("Hunting took thousands of mountain chickens every year").
+- **Points and team scores** are only for the game. Real numbers appear only on the fact cards and in the intro and jump-scare captions.
+- **The intro gag** (the frog eating a chicken) is a cartoon joke about the name. It isn't made up from nothing: mountain chickens do sometimes eat birds (diet study above), but not farm chickens.
+- **The game** is a way to *experience* the topics, not a simulation: you're a predator eating bugs (niche), and hunters, flashlights and cage traps stand for hunting (a major threat). The cage traps are a game idea. The projector's jump-scare caption states only the sourced fact ("People once hunted up to 36,000 of these frogs a year").
 - Exactly how chytrid reached Dominica isn't known. The six-degrees card says only what the 2018 study supports: chytrid spread worldwide with the global amphibian trade. The bonus chain says "storms like Hurricane Maria" rather than claiming climate change caused that one storm.
 - The pond, pools and map are illustrations, not a depiction of a specific place or facility. The island map is approximate.
 

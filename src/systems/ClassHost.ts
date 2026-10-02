@@ -1,19 +1,22 @@
 import type { Team } from './match';
 
-/** What phones are told to show. The relay forwards this object unchanged. */
+/**
+ * What phones are told to show. The relay forwards this object unchanged.
+ * intro = "how to play", round = the game, learn = the presenter is showing the fact cards.
+ */
 export type PhoneState =
   | { mode: 'lobby' }
-  | { mode: 'learn'; title: string }
   | { mode: 'intro' | 'round'; title: string; goal: string }
-  | { mode: 'results'; title: string; winner: Team | -1 }
+  | { mode: 'learn'; title: string }
   | { mode: 'final'; winner: Team | -1 }
   | { mode: 'paused' };
 
-/** One-player messages: your team, your score, "you were caught", final placing. */
+/** One-player messages: your team, your score, "you were caught", the secret scare, final placing. */
 export type PrivateMessage =
   | { kind: 'you'; team: Team }
-  | { kind: 'score'; score: number; round: number }
+  | { kind: 'score'; score: number }
   | { kind: 'caught'; scare: boolean }
+  | { kind: 'shock' }
   | { kind: 'final'; rank: number; of: number; score: number; team: Team; won: boolean };
 
 export interface ClassPlayerInfo { id: string; name: string; online: boolean }

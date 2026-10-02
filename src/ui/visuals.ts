@@ -23,7 +23,7 @@ const img = (key: string, scale = 6, cls = '') => `<img class="pixel ${cls}" src
 function nameplate(): string {
   return `<figure class="v-nameplate">
     ${img('portrait', 6, 'v-portrait')}
-    <figcaption><span class="latin">Leptodactylus fallax</span><span class="plaque-common">MOUNTAIN CHICKEN</span><span class="plaque-alt">a.k.a. "crapaud"</span></figcaption>
+    <figcaption><span class="plaque-common">MOUNTAIN CHICKEN</span><span class="latin">Leptodactylus fallax</span></figcaption>
   </figure>`;
 }
 
@@ -33,7 +33,6 @@ function redList(): string {
     <div class="redlist-title">IUCN RED LIST</div>
     <div class="redlist-scale">${levels.map(([code, name], i) => `<div class="rl rl-${code.toLowerCase()} ${code === 'CR' ? 'is-here' : ''}" style="--i:${i}"><b>${code}</b><span>${name}</span>${code === 'CR' ? `<i class="rl-pin">${img('icon-frog', 4)}</i>` : ''}</div>`).join('')}</div>
     <div class="redlist-groups"><span>Lower risk</span><span class="threatened">Threatened</span><span>Extinct</span></div>
-    <figcaption>One step from <b>Extinct in the Wild</b>.</figcaption>
   </figure>`;
 }
 
@@ -63,11 +62,9 @@ function islandMap(): string {
 }
 
 function anatomy(): string {
-  const features: [number, number, string][] = [[31, 33, 'Bronze eye'], [8, 69, 'Pale lip'], [55, 49, 'Dark markings'], [76, 52, 'Banded legs'], [76, 80, 'Rusty-red groin'], [29, 93, 'Thumb spur (male)']];
   return `<figure class="v-anatomy">
-    <div class="anatomy-frame">${img('portrait', 6, 'v-portrait')}${features.map(([x, y], i) => `<span class="pin" style="left:${x}%;top:${y}%;--i:${i}">${i + 1}</span>`).join('')}</div>
-    <ol class="anno-legend">${features.map(([, , label]) => `<li>${label}</li>`).join('')}</ol>
-    <div class="ruler"><span></span><b>up to 22 cm · up to 1 kg</b><span></span></div>
+    ${img('portrait', 6, 'v-portrait')}
+    <div class="ruler"><span></span><b>up to 22 cm</b><span></span></div>
   </figure>`;
 }
 
@@ -80,22 +77,22 @@ function plate(): string {
 
 function foodWeb(): string {
   const node = (keys: string[], text: string, cls = '') => `<div class="fw-node ${cls}"><span class="fw-icons">${keys.map(key => img(key, 3)).join('')}</span><b>${text}</b></div>`;
-  const row = (label: string, content: string) => `<div class="fw-row"><span class="fw-level">${label}</span><div class="fw-nodes">${content}</div></div>`;
-  const up = (count = 1) => row('', Array.from({ length: count }, () => '<span class="fw-arrow">▲</span>').join(''));
-  return `<figure class="v-foodweb" aria-label="Food web: plants, prey animals, the mountain chicken and its predators">
-    ${row('Eats the frog', node(['pig', 'hunter'], 'Feral pigs, opossums, cats, dogs, people', 'fw-danger'))}${up()}
-    ${row('Secondary / tertiary consumer', node(['frog-down-0'], 'MOUNTAIN CHICKEN', 'fw-hero'))}${up(2)}
-    ${row('Its prey', node(['snake'], 'Snakes, lizards, small frogs', 'fw-pred') + node(['cricket', 'crab'], 'Crickets, snails, crabs &amp; more'))}${up()}
-    ${row('Producers', node(['fern', 'flower'], 'Plants &amp; fallen leaves', 'fw-plant'))}
+  const arrow = '<span class="fw-arrow" aria-label="is eaten by">▲</span>';
+  return `<figure class="v-foodweb" aria-label="Food chain: plants, insects, the mountain chicken and its predators">
+    ${node(['pig', 'hunter'], 'Pigs, cats, dogs, people', 'fw-danger')}${arrow}
+    ${node(['frog-down-0'], 'MOUNTAIN CHICKEN', 'fw-hero')}${arrow}
+    ${node(['cricket', 'crab'], 'Crickets, crabs, snakes')}${arrow}
+    ${node(['fern', 'flower'], 'Plants', 'fw-plant')}
   </figure>`;
 }
 
 function crashChart(): string {
-  const bars = [['Before 2002', 100, 'Thousands of frogs'], ['2004', 15, '~85% died in 18 months'], ['2023', 1, '21 wild frogs found']] as const;
-  return `<figure class="v-crash" aria-label="Bar chart: Dominica mountain chickens fell from 100% before 2002 to 15% by 2004 and under 1% by 2023">
-    <div class="crash-title">Mountain chickens on Dominica</div>
-    <div class="crash-bars">${bars.map(([year, value, note]) => `<div class="crash-col"><span class="crash-value">${value === 1 ? '&lt;1%' : `${value}%`}</span><div class="crash-bar" style="--h:${Math.max(2, value)}%"></div><b>${year}</b><small>${note}</small></div>`).join('')}</div>
-    <div class="threat-icons">${['icon-fungus', 'hunter', 'volcano', 'stump', 'pig', 'icon-storm'].map(key => `<span>${img(key, key === 'volcano' ? 1 : 2)}</span>`).join('')}</div>
+  const bars = [['Before 2002', 100], ['2004', 15], ['2023', 1]] as const;
+  const threats: [string, string, number][] = [['icon-fungus', 'Fungus', 2], ['hunter', 'Hunting', 2], ['volcano', 'Volcano', 1], ['icon-storm', 'Storms', 2], ['stump', 'Lost forest', 2], ['pig', 'Pigs', 2]];
+  return `<figure class="v-crash" aria-label="Bar chart: Dominica's mountain chickens fell from 100% before 2002 to 15% by 2004 and under 1% by 2023">
+    <div class="crash-title">Frogs left on Dominica</div>
+    <div class="crash-bars">${bars.map(([year, value]) => `<div class="crash-col"><span class="crash-value">${value === 1 ? '&lt;1%' : `${value}%`}</span><div class="crash-bar" style="--h:${Math.max(2, value)}%"></div><b>${year}</b></div>`).join('')}</div>
+    <div class="threat-icons">${threats.map(([key, label, scale]) => `<span>${img(key, scale)}<small>${label}</small></span>`).join('')}</div>
   </figure>`;
 }
 
@@ -111,22 +108,20 @@ function importance(): string {
       <path d="M20 92H50L44 100H26Z" fill="#6b4a2a"/><path d="M35 92V76L46 90Z" fill="#fff"/>
       <path d="M84 76v30" stroke="#5a7a3a" stroke-width="3"/><path d="M84 82q10 2 12 12M84 82q-10 2 -10 10" stroke="#3f8a3a" stroke-width="4" fill="none"/><path d="M80 94h8v8h-8z" fill="#e8c040"/>
     </svg>
-    <figcaption>Dominica's coat of arms: the crapaud (top right)</figcaption>
-    <div class="importance-icons"><span>${img('cricket', 4)}<b>Pest control</b></span><span>${img('icon-skin', 3)}<b>Medicine</b></span><span>${img('icon-fungus', 3)}<b>Science</b></span></div>
+    <figcaption>Dominica's coat of arms: the frog is top right</figcaption>
   </figure>`;
 }
 
 function timeline(): string {
-  const partners = ['Durrell', 'ZSL', 'Chester Zoo', 'Nordens Ark', 'Paignton Zoo', 'Gov. of Montserrat', 'Gov. of Dominica'];
   return `<figure class="v-timeline">
     <div class="pool-scene">${img('pool', 4)}${img('solar', 4)}${img('researcher-2', 4)}<span class="pool-temp">31 °C</span></div>
-    <div class="partners">${partners.map(name => `<span>${esc(name)}</span>`).join('')}</div>
+    <figcaption>Sun-warmed pools: too hot for the fungus</figcaption>
   </figure>`;
 }
 
 function chain(): string {
   return `<figure class="v-chain">
-    <ol class="chain-nodes">${SIX_DEGREES.map((link, i) => `<li style="--i:${i}"><span class="chain-icon">${img(`icon-${link.icon}`, 3)}</span><b>${esc(link.step === 'YOU' || link.step === 'FROG' ? link.title : `${link.step}. ${link.title}`)}</b></li>`).join('')}</ol>
-    <div class="bonus-chain"><b>Extra-credit connection</b>${BONUS_CHAIN.map(item => `<span>${esc(item)}</span>`).join('<i>→</i>')}</div>
+    <ol class="chain-nodes">${SIX_DEGREES.map((link, i) => `<li style="--i:${i}"><span class="chain-icon">${img(`icon-${link.icon}`, 4)}</span><b>${esc(link.title)}</b></li>`).join('')}</ol>
+    <p class="bonus-chain"><b>Bonus chain:</b> ${BONUS_CHAIN.map(esc).join(' → ')}</p>
   </figure>`;
 }

@@ -153,3 +153,26 @@ export function scatter(keys: string[], count: number, area: [number, number, nu
   }
   return props;
 }
+
+/** The pond clearing used by the intro and the game (painted once, then cached as 'pond-day'). */
+export function pondTerrain(scene: Phaser.Scene): Phaser.GameObjects.Image {
+  if (!scene.textures.exists('pond-day')) {
+    scene.textures.addCanvas('pond-day', paintTerrain({
+      key: 'pond-day', width: 320, height: 180, palette: PALETTES.day, pathWidth: 6,
+      paths: [[[0, 118], [50, 110], [110, 120], [170, 108], [230, 118], [320, 110]], [[160, 40], [150, 80], [170, 108], [158, 150], [166, 180]]],
+      clearings: [[160, 105, 92, 46]], ponds: [[300, 36, 22, 9]],
+    }));
+  }
+  return scene.add.image(0, 0, 'pond-day').setOrigin(0).setScale(SCALE).setDepth(-100);
+}
+
+/** Trees around the edge of the pond clearing. */
+export function pondDecor(scene: Phaser.Scene): Phaser.GameObjects.Image[] {
+  const decor: Phaser.GameObjects.Image[] = [];
+  const place = (key: string, x: number, y: number, scale = 4) => { decor.push(scene.add.image(x, y, key).setOrigin(.5, .9).setScale(scale).setDepth(y)); };
+  for (let x = -20; x < 1320; x += 105) place(x % 2 ? 'tree' : 'palm', x + (x * 7) % 30, 150 + (x % 3) * 8);
+  for (let x = 10; x < 1320; x += 120) place(x % 3 ? 'tree' : 'bush', x, 885);
+  for (let y = 260; y < 700; y += 125) { place('tree', 14, y); place('tree', 1268, y + 40); }
+  for (const [x, y] of [[250, 250], [1030, 600], [380, 650], [900, 240], [560, 210], [720, 660]]) place(x % 2 ? 'flower' : 'fern', x, y);
+  return decor;
+}

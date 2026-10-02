@@ -1,72 +1,70 @@
 import Phaser from 'phaser';
 import { SCALE } from '../world/Terrain';
 
-interface Npc { sprite: Phaser.GameObjects.Image; shadow: Phaser.GameObjects.Image; pos: Phaser.Math.Vector2; home: Phaser.Math.Vector2; target: Phaser.Math.Vector2; wait: number; facing: string; alive: boolean; phase: number }
+interface Npc { sprite: Phaser.GameObjects.Image; shadow: Phaser.GameObjects.Image; pos: Phaser.Math.Vector2; home: Phaser.Math.Vector2; target: Phaser.Math.Vector2; wait: number; facing: string; hopT: number; squash: number; breath: number; blinkIn: number }
 
-/** Other mountain chickens: idle, blink and hop around a home spot. */
+/** Other mountain chickens on the title and finale: they breathe, blink and hop about a home spot. */
 export class AmbientFrogs {
   readonly frogs: Npc[] = [];
 
   constructor(private readonly scene: Phaser.Scene, homes: [number, number][], private readonly scale = 1) {
     for (const [x, y] of homes) {
       const shadow = scene.add.image(x, y + 12, 'frog-shadow').setScale(2.6 * scale).setAlpha(.45).setDepth(y - 1);
-      const sprite = scene.add.image(x, y, 'frog-down-0').setScale(3.2 * scale).setDepth(y);
-      this.frogs.push({ sprite, shadow, pos: new Phaser.Math.Vector2(x, y), home: new Phaser.Math.Vector2(x, y), target: new Phaser.Math.Vector2(x, y), wait: Math.random() * 3000, facing: 'down', alive: true, phase: 0 });
+      const sprite = scene.add.image(x, y, 'frog-down-0').setScale(3.2 * scale).setOrigin(.5, .9).setDepth(y);
+      this.frogs.push({ sprite, shadow, pos: new Phaser.Math.Vector2(x, y), home: new Phaser.Math.Vector2(x, y), target: new Phaser.Math.Vector2(x, y), wait: Math.random() * 3000, facing: 'down', hopT: 0, squash: 0, breath: Math.random() * 9, blinkIn: Math.random() * 3000 });
     }
   }
 
   update(delta: number): void {
+    const size = 3.2 * this.scale;
     for (const frog of this.frogs) {
-      if (!frog.alive) continue;
       const to = frog.target.clone().subtract(frog.pos);
-      let lift = 0;
-      if (to.length() < 3) {
-        frog.wait -= delta; frog.phase = 0;
-        frog.sprite.setTexture(`frog-${frog.facing}-${frog.wait % 3000 < 160 ? 3 : 0}`);
+      const moving = to.length() > 3;
+      if (moving) {
+        frog.pos.add(to.normalize().scale(Math.min(to.length(), delta * .11)));
+        frog.facing = Math.abs(to.x) > Math.abs(to.y) ? to.x > 0 ? 'right' : 'left' : to.y > 0 ? 'down' : 'up';
+      } else {
+        frog.wait -= delta;
         if (frog.wait <= 0) {
           frog.wait = 1800 + Math.random() * 3200;
           frog.target.set(frog.home.x + Phaser.Math.Between(-70, 70), frog.home.y + Phaser.Math.Between(-50, 50));
         }
-      } else {
-        const stepLength = Math.min(to.length(), delta * .09);
-        frog.pos.add(to.normalize().scale(stepLength));
-        frog.phase += delta / 170;
-        frog.facing = Math.abs(to.x) > Math.abs(to.y) ? to.x > 0 ? 'right' : 'left' : to.y > 0 ? 'down' : 'up';
-        lift = Math.round(Math.abs(Math.sin(frog.phase)) * 2) * 4;
-        frog.sprite.setTexture(`frog-${frog.facing}-${lift > 4 ? 2 : 0}`);
       }
-      frog.sprite.setPosition(frog.pos.x, frog.pos.y - lift).setDepth(frog.pos.y);
-      frog.shadow.setPosition(frog.pos.x, frog.pos.y + 12 * this.scale).setDepth(frog.pos.y - 1);
+      if (moving || frog.hopT > 0) {
+        frog.hopT += delta / 300;
+        if (frog.hopT >= 1) { frog.hopT = moving ? frog.hopT - 1 : 0; frog.squash = 1; }
+      }
+      frog.squash = Math.max(0, frog.squash - delta / 140);
+      frog.breath += delta / 420;
+      frog.blinkIn -= delta;
+      if (frog.blinkIn < -140) frog.blinkIn = 1800 + Math.random() * 3600;
+      const air = frog.hopT > 0 ? Math.sin(Math.PI * frog.hopT) : 0;
+      const breathe = frog.hopT === 0 ? Math.sin(frog.breath) * .03 : 0;
+      const frame = frog.hopT > 0 ? frog.hopT < .14 || frog.hopT > .88 ? 1 : 2 : frog.blinkIn < 0 ? 3 : 0;
+      frog.sprite.setTexture(`frog-${frog.facing}-${frame}`)
+        .setScale(size * (1 - .1 * air + .24 * frog.squash - breathe * .5), size * (1 + .18 * air - .26 * frog.squash + breathe))
+        .setPosition(frog.pos.x, frog.pos.y + 31 * this.scale - air * 14 * this.scale).setDepth(frog.pos.y);
+      frog.shadow.setPosition(frog.pos.x, frog.pos.y + 12 * this.scale).setDepth(frog.pos.y - 1).setScale(2.6 * this.scale * (1 - .3 * air));
     }
-  }
-
-  /** Chytrid: frogs turn pale and disappear, one after another. */
-  sicken(delayEach = 260, onEach?: (index: number) => void): void {
-    this.frogs.forEach((frog, i) => {
-      this.scene.time.delayedCall(i * delayEach, () => {
-        frog.alive = false;
-        frog.sprite.setTint(0x9fb8a0).setTexture('frog-down-3');
-        this.scene.tweens.add({ targets: [frog.sprite, frog.shadow], alpha: 0, y: '+=6', duration: 900, delay: 300 });
-        onEach?.(i);
-      });
-    });
   }
 }
 
-export type PreyKind = 'cricket' | 'beetle' | 'millipede' | 'snail' | 'crab' | 'snake' | 'golden';
+export type PreyKind = 'cricket' | 'beetle' | 'millipede' | 'snail' | 'crab' | 'golden' | 'mega';
 export const PREY: Record<PreyKind, { points: number; speed: number; label: string; texture: string }> = {
   cricket: { points: 1, speed: 70, label: 'Cricket', texture: 'cricket' },
   beetle: { points: 1, speed: 45, label: 'Beetle', texture: 'beetle' },
   millipede: { points: 1, speed: 28, label: 'Millipede', texture: 'millipede' },
   snail: { points: 1, speed: 12, label: 'Snail', texture: 'snail' },
   crab: { points: 3, speed: 55, label: 'Land crab', texture: 'crab' },
-  snake: { points: 3, speed: 60, label: 'Small snake', texture: 'snake' },
   golden: { points: 5, speed: 105, label: 'Golden cricket', texture: 'cricket' },
+  mega: { points: 10, speed: 150, label: 'Giant golden cricket', texture: 'cricket' },
 };
 
 /** Something the frog can catch. Moves in short hops/wiggles inside an area. */
 export class Prey {
   readonly sprite: Phaser.GameObjects.Image;
+  /** Soft glow so bugs stay visible after dark. */
+  readonly halo: Phaser.GameObjects.Image;
   readonly tag?: Phaser.GameObjects.Text;
   alive = true;
   private heading = Math.random() * Math.PI * 2;
@@ -74,8 +72,10 @@ export class Prey {
   private hop = 0;
 
   constructor(private readonly scene: Phaser.Scene, readonly kind: PreyKind, x: number, y: number, private readonly area: Phaser.Geom.Rectangle, readonly owner?: { id: string; name: string }) {
-    this.sprite = scene.add.image(x, y, PREY[kind].texture).setScale(SCALE).setDepth(y);
-    if (kind === 'golden') this.sprite.setTint(0xffd84a);
+    this.sprite = scene.add.image(x, y, PREY[kind].texture).setScale(kind === 'mega' ? SCALE * 1.7 : SCALE).setDepth(y);
+    const gold = kind === 'golden' || kind === 'mega';
+    if (gold) this.sprite.setTint(0xffd84a);
+    this.halo = scene.add.image(x, y, 'glow').setScale(kind === 'mega' ? 4 : gold ? 2.6 : 1.8).setDepth(1).setBlendMode(Phaser.BlendModes.ADD).setTint(gold ? 0xffd84a : 0xc8f07a).setAlpha(gold ? .5 : 0);
     if (owner) this.tag = scene.add.text(x, y - 40, owner.name, { fontFamily: 'Pixelify', fontSize: '18px', color: '#fff7d0', stroke: '#2e2a20', strokeThickness: 4 }).setOrigin(.5).setDepth(4800);
   }
 
@@ -90,7 +90,7 @@ export class Prey {
       if (d < 150 && this.kind !== 'snail') { this.heading = Math.atan2(this.sprite.y - fleeFrom.y, this.sprite.x - fleeFrom.x) + (Math.random() - .5) * .6; speed *= 1.6; }
     }
     this.hop += delta;
-    const hopper = this.kind === 'cricket' || this.kind === 'golden';
+    const hopper = this.kind === 'cricket' || this.kind === 'golden' || this.kind === 'mega';
     const moving = hopper ? this.hop % 1100 < 380 : true;
     if (moving) {
       let x = this.sprite.x + Math.cos(this.heading) * speed * delta / 1000;
@@ -99,16 +99,22 @@ export class Prey {
       this.sprite.setPosition(x, y).setDepth(y).setFlipX(Math.cos(this.heading) < 0);
     }
     if (hopper) this.sprite.setTexture(moving ? 'cricket-1' : 'cricket');
-    if (this.kind === 'snake') this.sprite.setTexture(Math.floor(this.hop / 160) % 2 ? 'snake-1' : 'snake');
+    this.halo.setPosition(this.sprite.x, this.sprite.y);
     this.tag?.setPosition(this.sprite.x, this.sprite.y - 42);
   }
 
-  /** Pulled into the frog's mouth by the tongue. */
-  eat(toX: number, toY: number): void {
-    this.alive = false;
-    this.tag?.destroy();
-    this.scene.tweens.add({ targets: this.sprite, x: toX, y: toY, scale: 1, duration: 130, ease: 'Quad.easeIn', onComplete: () => this.sprite.destroy() });
+  /** How strongly the bug glows (0 in daylight). Gold bugs always shine a little. */
+  setGlow(level: number): void {
+    const gold = this.kind === 'golden' || this.kind === 'mega';
+    this.halo.setAlpha(Math.min(1, (gold ? .5 : 0) + level * (gold ? .5 : .8)));
   }
 
-  destroy(): void { this.alive = false; this.sprite.destroy(); this.tag?.destroy(); }
+  /** Pulled into the frog's mouth by the tongue (after `delay`, when the tongue gets there). */
+  eat(toX: number, toY: number, delay = 0): void {
+    this.alive = false;
+    this.tag?.destroy(); this.halo.destroy();
+    this.scene.tweens.add({ targets: this.sprite, x: toX, y: toY, scale: 1, delay, duration: 110, ease: 'Quad.easeIn', onComplete: () => this.sprite.destroy() });
+  }
+
+  destroy(): void { this.alive = false; this.sprite.destroy(); this.halo.destroy(); this.tag?.destroy(); }
 }

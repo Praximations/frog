@@ -84,7 +84,6 @@ function drawFlower(ctx: Context): void {
 }
 
 
-
 function drawStump(ctx: Context): void {
   oval(ctx, '#4f4a3a', 10, 12, 10, 3);
   rect(ctx, '#6b4f36', 3, 4, 14, 9); rect(ctx, '#8a6644', 4, 5, 3, 7);
@@ -92,25 +91,6 @@ function drawStump(ctx: Context): void {
   rect(ctx, '#e8d4a0', 0, 13, 3, 1); rect(ctx, '#e8d4a0', 17, 12, 3, 1);
 }
 
-function drawHut(ctx: Context): void {
-  rect(ctx, '#66824b', 6, 70, 72, 5);
-  rect(ctx, '#725541', 10, 27, 63, 42); rect(ctx, '#e1c599', 12, 30, 59, 36);
-  for (let y = 33; y < 66; y += 6) rect(ctx, '#c4a276', 12, y, 59, 1);
-  rect(ctx, '#755a40', 14, 28, 3, 40); rect(ctx, '#755a40', 66, 28, 3, 40);
-  for (let y = 0; y < 23; y++) {
-    const left = 21 - Math.floor(y / 2);
-    rect(ctx, '#74483b', left, 6 + y, 82 - left * 2, 1);
-    rect(ctx, y % 5 === 0 ? '#efaa73' : y % 5 === 4 ? '#ad6047' : '#ce7c52', left + 2, 6 + y, 78 - left * 2, 1);
-  }
-  rect(ctx, '#794c35', 7, 28, 69, 4); rect(ctx, '#e9a16a', 7, 28, 69, 1);
-  for (const x of [20, 53]) {
-    rect(ctx, '#69523d', x, 39, 11, 15); rect(ctx, '#8bb8b0', x + 2, 41, 7, 11);
-    rect(ctx, '#dbede0', x + 2, 41, 7, 2); rect(ctx, '#6c8e89', x + 5, 41, 1, 11); rect(ctx, '#f2d5a4', x - 1, 53, 13, 2);
-  }
-  rect(ctx, '#5c4d3e', 36, 43, 13, 25); rect(ctx, '#a68b5b', 38, 45, 9, 21);
-  rect(ctx, '#e9c373', 44, 55, 1, 2); rect(ctx, '#bfab80', 31, 68, 23, 3); rect(ctx, '#e7d2a0', 29, 71, 27, 3);
-  rect(ctx, '#799054', 32, 34, 20, 6); rect(ctx, '#ead8a0', 36, 36, 12, 1);
-}
 
 function drawPerson(ctx: Context, shirt: string, shirtLight: string, hat: string, frame = 0, extra?: (ctx: Context) => void): void {
   rect(ctx, '#3d4a35', 3, 24, 13, 1);
@@ -146,12 +126,6 @@ function drawPig(ctx: Context, frame: number): void {
   rect(ctx, '#3b2f2a', 1, 5, 2, 1);
 }
 
-function drawSporePool(ctx: Context): void {
-  oval(ctx, '#243228', 15, 8, 15, 7); oval(ctx, '#33503f', 15, 8, 13, 5); oval(ctx, '#3e6a48', 14, 7, 10, 3);
-  for (const [x, y] of [[8, 7], [13, 5], [19, 8], [22, 6], [11, 10], [17, 10]]) { rect(ctx, '#a6f06a', x, y, 2, 1); rect(ctx, '#e4ffb0', x, y, 1, 1); }
-  rect(ctx, '#5a8a5a', 6, 3, 4, 1); rect(ctx, '#6aa060', 20, 12, 5, 1);
-}
-
 
 function drawVolcano(ctx: Context): void {
   for (let y = 6; y < 40; y++) {
@@ -180,8 +154,6 @@ function drawSolar(ctx: Context): void {
   for (let y = 3; y < 14; y += 4) rect(ctx, '#6a8ac0', 1, y, 20, 1);
   rect(ctx, '#a8c8f0', 2, 4, 3, 1);
 }
-
-
 
 
 // ---------------------------------------------------------------- frogs and prey
@@ -222,6 +194,9 @@ function drawFrog(ctx: Context, facing: string, frame: number): void {
     }
   }
   if (!back) rect(ctx, FROG.mark, side ? 4 : 7, 10 + y, side ? 6 : 10, 1);
+  if (frame === 4 && !back) { // mouth wide open, tongue out
+    rect(ctx, '#4a1414', side ? 3 : 7, 10 + y, side ? 7 : 10, 3); rect(ctx, '#e86a8a', side ? 3 : 9, 11 + y, side ? 4 : 6, 2); rect(ctx, '#ffa0b8', side ? 3 : 11, 11 + y, 2, 1);
+  }
   rect(ctx, FROG.mark, 3, 8 + y, 2, 2); rect(ctx, FROG.mark, 19, 8 + y, 2, 2); // mask behind the eyes
   rect(ctx, FROG.legLight, 4, 13 + y, 2, 3); rect(ctx, FROG.legLight, 18, 13 + y, 2, 3);
 }
@@ -252,19 +227,6 @@ function drawCrab(ctx: Context): void {
   oval(ctx, '#7a2a40', 7, 6, 5, 3); oval(ctx, '#b8466a', 7, 5, 4, 2); rect(ctx, '#e07a9a', 5, 4, 3, 1);
   rect(ctx, '#b8466a', 0, 3, 3, 3); rect(ctx, '#b8466a', 11, 3, 3, 3); rect(ctx, '#e8a0b0', 0, 3, 1, 1); rect(ctx, '#e8a0b0', 13, 3, 1, 1);
   rect(ctx, '#2a1218', 5, 1, 1, 2); rect(ctx, '#2a1218', 8, 1, 1, 2);
-}
-function drawSnake(ctx: Context, frame: number): void {
-  for (let x = 0; x < 20; x++) {
-    const y = 3 + Math.round(Math.sin(x / 2.6 + frame * 1.6) * 2);
-    rect(ctx, '#3a4a22', x, y, 1, 3); rect(ctx, x % 4 < 2 ? '#7a8a3a' : '#5a6a2a', x, y, 1, 2);
-  }
-  const hy = 3 + Math.round(Math.sin(20 / 2.6 + frame * 1.6) * 2);
-  rect(ctx, '#3a4a22', 19, hy - 1, 4, 4); rect(ctx, '#7a8a3a', 20, hy - 1, 2, 2); rect(ctx, '#1a1a10', 21, hy, 1, 1);
-  if (frame) { rect(ctx, '#d84040', 23, hy + 1, 1, 1); }
-}
-function drawGoldfly(ctx: Context, frame: number): void {
-  rect(ctx, frame ? '#fff8d8' : '#dff4ff', frame ? 0 : 1, frame ? 0 : 2, 3, 2); rect(ctx, frame ? '#fff8d8' : '#dff4ff', frame ? 5 : 4, frame ? 0 : 2, 3, 2);
-  oval(ctx, '#c08a1a', 4, 4, 2, 2); rect(ctx, '#ffd84a', 3, 3, 2, 2); rect(ctx, '#3a2a10', 5, 4, 1, 1);
 }
 
 function thick(ctx: Context, color: string, x0: number, y0: number, x1: number, y1: number, r: number): void {
@@ -332,6 +294,76 @@ function drawScare(ctx: Context): void {
   rect(ctx, '#5a3e2e', 22, 34, 8, 4);
 }
 
+/** The frog portrait with its mouth wide open (tongue out) or gulping (throat bulging, chicken feet poking out). */
+function drawPortraitMouth(ctx: Context, state: 'open' | 'full'): void {
+  drawPortrait(ctx);
+  if (state === 'open') {
+    for (let x = 2; x < 24; x++) { const depth = Math.max(1, Math.round((24 - x) / 4)); rect(ctx, '#4a1414', x, 32, 1, depth + 1); }
+    rect(ctx, '#7a2424', 3, 33, 12, 2); rect(ctx, '#e86a8a', 3, 34, 9, 2); rect(ctx, '#ffa0b8', 4, 34, 4, 1);
+    rect(ctx, FROG.cream, 2, 31, 22, 1);
+  } else {
+    oval(ctx, FROG.dark, 15, 37, 11, 6); oval(ctx, '#d9b888', 15, 37, 10, 5); oval(ctx, '#f0d8a8', 13, 36, 6, 2);
+    for (const [x, top] of [[6, 23], [11, 25]]) { // two chicken feet sticking out of the mouth
+      rect(ctx, '#c07818', x, top + 2, 3, 32 - top - 2); rect(ctx, '#e8a030', x, top + 2, 2, 32 - top - 2);
+      rect(ctx, '#e8a030', x - 2, top, 2, 2); rect(ctx, '#e8a030', x, top - 1, 2, 3); rect(ctx, '#e8a030', x + 2, top, 2, 2);
+    }
+  }
+}
+
+/** A plump farm chicken, facing right. 0 stand, 1 step, 2 peck, 3 startled. */
+function drawChicken(ctx: Context, frame: number): void {
+  const peck = frame === 2, startled = frame === 3;
+  oval(ctx, '#00000033', 11, 21, 8, 1);
+  const legs = frame === 1 ? [[9, 0], [13, 1]] : [[9, 1], [13, 0]];
+  for (const [x, lift] of legs) { rect(ctx, '#d88a20', x, 16, 1, 5 - lift); rect(ctx, '#d88a20', x - 1, 20 - lift, 3, 1); }
+  oval(ctx, '#6a5a4a', 4, 9, 3, 5); oval(ctx, '#ffffff', 4, 8, 2, 4); rect(ctx, '#d8d0c0', 3, 6, 1, 4); // tail
+  oval(ctx, '#6a5a4a', 11, 12, 8, 6); oval(ctx, '#ffffff', 11, 11, 7, 5); oval(ctx, '#e4ddd0', 11, 14, 6, 2);
+  if (startled) { oval(ctx, '#6a5a4a', 8, 7, 4, 3); oval(ctx, '#f4f0e8', 8, 7, 3, 2); } else { oval(ctx, '#d8d0c0', 10, 12, 4, 2); rect(ctx, '#bfb6a6', 8, 13, 5, 1); } // wing
+  const hx = peck ? 18 : 16, hy = peck ? 12 : startled ? 3 : 5;
+  oval(ctx, '#6a5a4a', hx, hy, 4, 4); oval(ctx, '#ffffff', hx, hy, 3, 3);
+  rect(ctx, '#d8302a', hx - 2, hy - 5, 2, 2); rect(ctx, '#d8302a', hx, hy - 6, 2, 3); rect(ctx, '#e84a3a', hx + 2, hy - 5, 1, 2); // comb
+  rect(ctx, '#f0b030', hx + 3, hy, 3, 1); rect(ctx, '#c8881a', hx + 3, hy + 1, 2, 1); // beak
+  rect(ctx, '#d8302a', hx + 2, hy + 2, 1, 2); // wattle
+  rect(ctx, '#1d140e', hx + 1, hy - 1, 1, startled ? 2 : 1);
+  if (startled) rect(ctx, '#ffffff', hx + 1, hy - 2, 1, 1);
+}
+
+function drawFeather(ctx: Context): void {
+  rect(ctx, '#ffffff', 1, 0, 4, 2); rect(ctx, '#ffffff', 0, 1, 5, 2); rect(ctx, '#d8d0c0', 1, 3, 3, 1); line(ctx, '#a89880', 0, 3, 5, 0);
+}
+
+/** A wooden cage trap left by a hunter. Open: door propped up on a stick. */
+function drawTrap(ctx: Context, shut: boolean): void {
+  oval(ctx, '#00000044', 9, 15, 9, 2);
+  rect(ctx, '#5a3a20', 1, 13, 17, 3); rect(ctx, '#8a6a3a', 1, 13, 17, 1);
+  rect(ctx, '#3a3a3a', 1, 2, 17, 2); rect(ctx, '#7a7a7a', 1, 2, 17, 1);
+  for (let x = 1; x < 18; x += 4) { rect(ctx, '#3a3a3a', x, 3, 1, 10); rect(ctx, '#9a9a9a', x + 1, 3, 1, 10); }
+  if (shut) { rect(ctx, '#6a4a2a', 4, 4, 11, 9); for (let y = 5; y < 13; y += 3) rect(ctx, '#4a3018', 4, y, 11, 1); }
+  else { line(ctx, '#8a6a3a', 9, 12, 12, 6); rect(ctx, '#6a4a2a', 9, 0, 9, 2); rect(ctx, '#8a6a3a', 10, 0, 7, 1); }
+}
+
+/** The secret scare: a hollow-eyed face in the dark, portrait-shaped to fill a phone. */
+function drawShock(ctx: Context): void {
+  rect(ctx, '#020203', 0, 0, 60, 90);
+  for (let y = 0; y < 90; y++) for (let x = 0; x < 60; x++) {
+    const edge = Math.max(Math.abs(x - 30) / 30, Math.abs(y - 45) / 45);
+    if (edge > .82 && hash(x, y) < (edge - .82) * 400) rect(ctx, '#3a0606', x, y, 1, 1);
+  }
+  for (let x = 4; x < 56; x += 2) { const h = 20 + hash(x, 5) % 40; rect(ctx, '#0a0a0c', x, 4, 2, h); } // hair behind
+  oval(ctx, '#3a4038', 30, 48, 21, 31); oval(ctx, '#8a9282', 30, 47, 19, 29); oval(ctx, '#b4bba8', 30, 44, 15, 24); oval(ctx, '#cdd3bf', 29, 40, 10, 14);
+  oval(ctx, '#6a7262', 15, 58, 4, 8); oval(ctx, '#6a7262', 45, 58, 4, 8); // sunken cheeks
+  for (const x of [14, 22, 28, 36, 44]) { const len = 14 + hash(x, 2) % 22; rect(ctx, '#050506', x, 14, 3 + hash(x, 7) % 3, len); } // hair over the face
+  for (const x of [19, 41]) {
+    oval(ctx, '#2a2e28', x, 39, 8, 9); oval(ctx, '#000000', x, 40, 7, 8);
+    rect(ctx, '#ff2a1a', x - 1, 40, 2, 2); rect(ctx, '#ffffff', x, 40, 1, 1);
+    for (let y = 48; y < 64 + hash(x, 1) % 10; y++) rect(ctx, '#0a0a0a', x - 1 + (y % 5 === 0 ? 1 : 0), y, 2, 1); // black tears
+  }
+  oval(ctx, '#2a2e28', 30, 50, 2, 3); rect(ctx, '#000000', 29, 51, 1, 2); rect(ctx, '#000000', 31, 51, 1, 2);
+  oval(ctx, '#1a0606', 30, 66, 10, 12); oval(ctx, '#000000', 30, 67, 8, 10); oval(ctx, '#3a0808', 30, 71, 5, 4);
+  for (let x = 23; x < 37; x += 3) { rect(ctx, '#e8e0c0', x, 57 + hash(x, 3) % 2, 2, 3); rect(ctx, '#e8e0c0', x + 1, 73 + hash(x, 4) % 2, 2, 3); }
+  line(ctx, '#4a524a', 24, 22, 27, 30); line(ctx, '#4a524a', 38, 26, 35, 33); line(ctx, '#4a524a', 12, 46, 9, 54);
+}
+
 // ---------------------------------------------------------------- six degrees icons (16×16)
 
 function drawIcon(ctx: Context, kind: string): void {
@@ -373,41 +405,44 @@ function drawIcon(ctx: Context, kind: string): void {
 }
 
 
-
 // ---------------------------------------------------------------- registry
 
 export const simple: Record<string, [number, number, Draw]> = {
   tree: [50, 64, ctx => drawTree(ctx)],
-  'tree-dark': [50, 64, ctx => drawTree(ctx, ['#1c3029', '#264036', '#2f4d3c', '#3c5c44', '#2a4436', '#4c6c4c'])],
-  'tree-dusk': [50, 64, ctx => drawTree(ctx, ['#3a4a32', '#52643a', '#6a7a40', '#8a8a4a', '#5a6a3a', '#b0a060'])],
   palm: [44, 62, drawPalm],
   bush: [32, 25, drawBush],
   fern: [20, 22, drawFern],
   flower: [10, 14, drawFlower],
   stump: [20, 15, drawStump],
-  hut: [82, 78, drawHut],
   'researcher-2': [18, 26, ctx => drawPerson(ctx, '#3a6f8a', '#7aaac0', '#3f6a4a', 0, c => { rect(c, '#fff0cd', 14, 13, 4, 5); rect(c, '#8a7a5a', 15, 14, 2, 1); })],
   'frog-shadow': [20, 8, ctx => oval(ctx, '#203a2a', 10, 4, 9, 3)],
   pig: [22, 15, ctx => drawPig(ctx, 0)], 'pig-1': [22, 15, ctx => drawPig(ctx, 1)],
-  'spore-pool': [30, 15, drawSporePool],
   volcano: [60, 40, drawVolcano],
   pool: [52, 30, drawPool],
   solar: [22, 19, drawSolar],
   cricket: [14, 10, ctx => drawCricket(ctx, 0)], 'cricket-1': [14, 10, ctx => drawCricket(ctx, 1)],
   beetle: [10, 10, drawBeetle], millipede: [16, 6, drawMillipede], snail: [10, 9, drawSnail], crab: [14, 10, drawCrab],
-  snake: [24, 9, ctx => drawSnake(ctx, 0)], 'snake-1': [24, 9, ctx => drawSnake(ctx, 1)],
-  goldfly: [8, 7, ctx => drawGoldfly(ctx, 0)], 'goldfly-1': [8, 7, ctx => drawGoldfly(ctx, 1)],
   portrait: [72, 52, drawPortrait],
+  'portrait-open': [72, 52, ctx => drawPortraitMouth(ctx, 'open')],
+  'portrait-full': [72, 52, ctx => drawPortraitMouth(ctx, 'full')],
   scare: [80, 45, drawScare],
+  shock: [60, 90, drawShock],
+  chicken: [24, 22, ctx => drawChicken(ctx, 0)], 'chicken-1': [24, 22, ctx => drawChicken(ctx, 1)],
+  'chicken-2': [24, 22, ctx => drawChicken(ctx, 2)], 'chicken-3': [24, 22, ctx => drawChicken(ctx, 3)],
+  feather: [6, 4, drawFeather],
+  phone: [12, 18, ctx => {
+    rect(ctx, '#2a2420', 0, 0, 12, 18); rect(ctx, '#95d06a', 1, 2, 10, 13); rect(ctx, '#4a4440', 5, 16, 2, 1);
+    oval(ctx, '#fff1cb', 6, 8, 3, 3); oval(ctx, '#4f8f3a', 7, 7, 1, 1);
+  }],
+  trap: [19, 17, ctx => drawTrap(ctx, false)], 'trap-shut': [19, 17, ctx => drawTrap(ctx, true)],
+  dust: [4, 4, ctx => { rect(ctx, '#e8dcb8', 1, 0, 2, 4); rect(ctx, '#e8dcb8', 0, 1, 4, 2); rect(ctx, '#fff6dc', 1, 1, 1, 1); }],
   hunter: [20, 26, ctx => drawHunter(ctx, 0)], 'hunter-1': [20, 26, ctx => drawHunter(ctx, 1)],
-  spore: [3, 3, ctx => { rect(ctx, '#a6f06a', 0, 0, 3, 3); rect(ctx, '#e4ffb0', 1, 1, 1, 1); }],
   firefly: [3, 3, ctx => { rect(ctx, '#c8f07a', 0, 0, 3, 3); rect(ctx, '#fffbd0', 1, 1, 1, 1); }],
   leaf: [5, 4, ctx => { rect(ctx, '#6a9a3a', 0, 1, 5, 2); rect(ctx, '#9ac85a', 1, 0, 3, 1); rect(ctx, '#3f6a2a', 2, 3, 1, 1); }],
-  steam: [6, 6, ctx => { oval(ctx, '#ffffffaa', 3, 3, 2, 2); rect(ctx, '#ffffff', 2, 2, 1, 1); }],
 };
 for (const kind of ['you', 'shop', 'ship', 'fungus', 'island', 'skin', 'frog', 'storm']) simple[`icon-${kind}`] = [16, 16, ctx => drawIcon(ctx, kind)];
 for (const facing of ['down', 'up', 'left', 'right']) {
-  for (let frame = 0; frame < 4; frame++) simple[`frog-${facing}-${frame}`] = [24, 24, ctx => drawFrog(ctx, facing, frame)];
+  for (let frame = 0; frame < 5; frame++) simple[`frog-${facing}-${frame}`] = [24, 24, ctx => drawFrog(ctx, facing, frame)];
 }
 simple.frog = [24, 24, ctx => drawFrog(ctx, 'down', 0)];
 

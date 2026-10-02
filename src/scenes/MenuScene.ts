@@ -7,6 +7,8 @@ import { sound } from '../systems/Sound';
 import { settings, saveSettings } from '../systems/Settings';
 import { artUrl } from '../world/Art';
 import { go } from '../systems/flow';
+import { showCards } from '../ui/cards';
+import { JOURNAL } from '../data/journal';
 import { $ } from '../ui/html';
 
 /** Title screen: an animated rainforest, the game's name, and big friendly buttons. */
@@ -37,17 +39,20 @@ export class MenuScene extends Phaser.Scene {
       <div class="menu-content">
         <img class="title-frog pixel" src="${artUrl('portrait', 5)}" alt="">
         <h1><span>MOUNTAIN</span><span>CHICKEN</span></h1>
-        <p class="menu-sub">Team Dominica vs Team Montserrat · a class pond party</p>
+        <p class="menu-sub">Eat bugs. Don't get caught.</p>
         <button class="arrow-play" id="play-button" aria-label="Play">
           <svg viewBox="0 0 128 52" aria-hidden="true" shape-rendering="crispEdges"><path fill="#543c35" d="M0 10H88V0H100V4H104V8H108V12H112V16H116V20H120V24H124V28H120V32H116V36H112V40H108V44H104V48H100V52H88V42H0Z"/><path fill="#bc8448" d="M4 14H92V4H98V8H102V12H106V16H110V20H114V24H118V28H114V32H110V36H106V40H102V44H98V48H92V38H4Z"/><path fill="#f7d781" d="M4 14H92V4H98V8H102V12H106V16H110V20H114V24H118V26H114V30H110V34H106V38H102V42H98V44H92V34H4Z"/><path fill="#fff0b2" d="M8 14H88V18H8Z"/></svg>
           <span>PLAY</span>
         </button>
       </div>
-      <div class="menu-modes"><button class="secondary" id="join-button">📱 JOIN ON A PHONE</button></div>
+      <div class="menu-modes"><button class="secondary" id="facts-button">📖 FACT CARDS</button><button class="secondary" id="join-button">📱 JOIN ON A PHONE</button></div>
       <div class="menu-corner"><button class="icon-button glass" id="sound-button" aria-label="Toggle sound">${settings.sound ? '♪' : '✕'}</button><button class="icon-button glass" id="fullscreen" aria-label="Toggle fullscreen">⛶</button></div>
-      <div class="menu-controls">Everyone plays a frog · about 10 minutes · 3 rounds</div>
+      <div class="menu-controls">Everyone plays a frog on their phone · about 10 minutes</div>
+      <div id="modal-slot"></div>
     </section>`);
-    $(root, '#play-button').addEventListener('click', () => { sound.play('click'); go(this, 'PondScene', {}, 350); });
+    $(root, '#play-button').addEventListener('click', () => { sound.play('click'); go(this, 'IntroScene', {}, 350); });
+    let cardsClosedAt = 0;
+    $(root, '#facts-button').addEventListener('click', () => { sound.play('click'); showCards($(root, '#modal-slot'), JOURNAL, { closable: true, onDone: () => { cardsClosedAt = performance.now(); } }); });
     $(root, '#join-button').addEventListener('click', () => { location.hash = 'join'; location.reload(); });
     $(root, '#fullscreen').addEventListener('click', () => this.scale.isFullscreen ? this.scale.stopFullscreen() : this.scale.startFullscreen());
     $(root, '#sound-button').addEventListener('click', () => {
@@ -55,7 +60,7 @@ export class MenuScene extends Phaser.Scene {
       $(root, '#sound-button').textContent = settings.sound ? '♪' : '✕';
     });
     const enter = this.input.keyboard!.addKey('ENTER');
-    enter.once('down', () => go(this, 'PondScene', {}, 350));
+    enter.on('down', () => { if (!root.querySelector('.journal-card') && performance.now() - cardsClosedAt > 400) go(this, 'IntroScene', {}, 350); });
     camera.fadeIn(400, 0, 0, 0);
   }
 
