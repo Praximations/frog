@@ -1,4 +1,6 @@
 import { openLink, type Link, type LinkKind } from './link';
+import type { Move } from '../../server/shared.mjs';
+import type { WorldSnapshot } from './world';
 
 /** A quiz question as phones see it (the right answer is only sent at the reveal). */
 export interface QuizView { q: string; question: string; answers: string[]; seconds: number }
@@ -21,10 +23,9 @@ export type PhoneState =
 
 export type BoostKind = 'speed' | 'tongue' | 'double' | 'shield';
 
-/** One-player messages. */
+/** One-player messages. (Scores and positions travel in the world snapshots.) */
 export type PrivateMessage =
   | { kind: 'you'; name: string; color: string; colorName: string }
-  | { kind: 'score'; score: number }
   | { kind: 'caught'; scare: boolean; by: 'hunter' | 'trap' | 'pig' }
   | { kind: 'shock' }
   | { kind: 'boost'; boost: BoostKind; seconds: number }
@@ -38,11 +39,13 @@ export type PlayerEvent =
   | { type: 'answer'; id: string; q: string; choice: number }
   | { type: 'ping'; id: string };
 
-export interface ClassPlayerInfo { id: string; name: string; online: boolean }
+export interface ClassPlayerInfo { id: string; name: string; look: string; online: boolean }
+/** A player's latest position, and when it arrived. */
+export interface PlayerMove extends Move { at: number }
 type Listener = (event: { type: 'join' | 'leave' | 'removed' | 'status'; id?: string }) => void;
 type EventHandler = (event: PlayerEvent) => void;
 
-/** The projector's side of class mode: join code, roster and every phone's joystick. */
+/** The projector's side of class mode: join code, roster, every frog's position, world snapshots. */
 class ClassHost {
   code = '';
   connected = false;
@@ -55,7 +58,7 @@ class ClassHost {
   kind: LinkKind = 'server';
   private generation = 0;
   private opening = false;
-  private inputs = new Map<string, { x: number; y: number; at: number }>();
+  private moves = new Map<string, PlayerMove>();
   private socket?: WebSocket;
   private listeners = new Set<Listener>();
   private eventHandlers = new Set<EventHandler>();
@@ -108,7 +111,7 @@ class ClassHost {
     this.available = !!this.code;
     this.connected = false;
     this.error = message;
-    this.inputs.clear();
+    this.moves.clear();
     for (const player of this.players.values()) player.online = false;
     this.emit('status');
   }
@@ -135,20 +138,21 @@ class ClassHost {
       const id = String(message.id);
       if (message.event === 'join') {
         const existing = this.players.get(id);
-        if (existing) existing.online = true;
-        else this.players.set(id, { id, name: String(message.name), online: true });
+        const look = typeof message.look === 'string' ? message.look : '0.0.0';
+        if (existing) { existing.online = true; existing.look = look; }
+        else this.players.set(id, { id, name: String(message.name), look, online: true });
         this.emit('join', id);
       } else if (message.event === 'leave') {
         const player = this.players.get(id); if (player) player.online = false;
-        this.inputs.delete(id);
+        this.moves.delete(id);
         this.emit('leave', id);
       } else if (message.event === 'removed') {
-        this.players.delete(id); this.inputs.delete(id);
+        this.players.delete(id); this.moves.delete(id);
         this.emit('removed', id);
       }
-    } else if (message.type === 'input') {
-      const input = message.input as { x: number; y: number };
-      this.inputs.set(String(message.id), { x: input.x, y: input.y, at: performance.now() });
+    } else if (message.type === 'move') {
+      const { x, y, f, m, s } = message as unknown as Move;
+      this.moves.set(String(message.id), { x, y, f, m, s, at: performance.now() });
     } else if (message.type === 'react' || message.type === 'answer' || message.type === 'ping') {
       const player = this.players.get(String(message.id));
       if (!player) return;
@@ -159,23 +163,25 @@ class ClassHost {
     }
   }
 
-  /** The joystick direction for a phone, or zero if it has gone quiet (locked screen, dropped Wi-Fi). */
-  input(id: string): { x: number; y: number } {
-    const input = this.inputs.get(id);
-    if (!input || performance.now() - input.at > 1500) return { x: 0, y: 0 };
-    return input;
-  }
+  /** Where a player says their frog is (undefined until they move). */
+  move(id: string): PlayerMove | undefined { return this.moves.get(id); }
 
   private send(value: unknown): void { if (this.socket?.readyState === WebSocket.OPEN) this.socket.send(JSON.stringify(value)); }
   publish(state: PhoneState): void { this.send({ type: 'state', state }); }
   sendTo(id: string, data: PrivateMessage): void { this.send({ type: 'to', id, data }); }
-  kick(id: string): void { this.send({ type: 'kick', id }); this.players.delete(id); this.inputs.delete(id); this.emit('removed', id); }
+  /** A snapshot of the map for every phone. */
+  broadcast(world: WorldSnapshot): void {
+    // On a slow network, skip snapshots rather than queue them up: only the newest one matters.
+    if ((this.socket?.bufferedAmount ?? 0) > 64 * 1024) return;
+    this.send({ type: 'world', w: world });
+  }
+  kick(id: string): void { this.send({ type: 'kick', id }); this.players.delete(id); this.moves.delete(id); this.emit('removed', id); }
 
   close(): void {
     this.generation++; this.opening = false;
     const socket = this.socket; this.socket = undefined;
     socket?.close();
-    this.connected = false; this.code = ''; this.players.clear(); this.inputs.clear(); this.available = null;
+    this.connected = false; this.code = ''; this.players.clear(); this.moves.clear(); this.available = null;
     this.emit('status');
   }
 }

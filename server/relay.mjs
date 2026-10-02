@@ -1,16 +1,19 @@
 import { randomBytes, randomInt } from 'node:crypto';
 import { networkInterfaces } from 'node:os';
 import { WebSocketServer, WebSocket } from 'ws';
-import { cleanName, uniqueName, validAnswer, NAME_LENGTH, PLAYERS_PER_ROOM, REACTIONS } from './shared.mjs';
+import { cleanName, uniqueName, validAnswer, validLook, cleanMove, NAME_LENGTH, PLAYERS_PER_ROOM, REACTIONS, WORLD_BYTES } from './shared.mjs';
 
 export { cleanName, REACTIONS };
 
 /**
  * Class relay. One host browser (the projector) owns all game state and scoring; phones join with
- * a code and nickname and act as joysticks for their own frog. The relay validates, rate-limits
+ * a code, a nickname and a frog look. Each phone shows the map and moves its own frog, sending its
+ * position; the projector sends everyone snapshots of the world. The relay validates, rate-limits
  * and forwards.
  */
-export const LIMITS = { rooms: 30, playersPerRoom: PLAYERS_PER_ROOM, clients: 600, nameLength: NAME_LENGTH, stateBytes: 3000, privateBytes: 1000 };
+export const LIMITS = { rooms: 30, playersPerRoom: PLAYERS_PER_ROOM, clients: 600, nameLength: NAME_LENGTH, stateBytes: 3000, privateBytes: 1000, worldBytes: WORLD_BYTES };
+/** Messages per second: the projector sends world snapshots plus a message per player at times. */
+const RATE = { host: 600, player: 40 };
 export const MODES = ['lobby', 'intro', 'round', 'quiz', 'reveal', 'results', 'learn', 'final', 'paused'];
 
 const send = (socket, value) => { if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(value)); };
@@ -29,7 +32,7 @@ export function lanAddresses(port) {
 /** Adds the class relay to an existing HTTP server (standalone host, Vite dev or Vite preview). */
 export function attachRelay(http, { path = '/session' } = {}) {
   const rooms = new Map();
-  const wss = new WebSocketServer({ noServer: true, maxPayload: 4096, perMessageDeflate: false });
+  const wss = new WebSocketServer({ noServer: true, maxPayload: 32768, perMessageDeflate: false });
 
   const onUpgrade = (req, socket, head) => {
     let pathname = '';
@@ -49,7 +52,8 @@ export function attachRelay(http, { path = '/session' } = {}) {
     socket.on('pong', () => { socket.alive = true; });
     socket.on('message', data => {
       if (Date.now() - windowStart > 1000) { windowStart = Date.now(); messages = 0; }
-      if (++messages > 80) { socket.close(1008, 'Too many messages'); return; }
+      if (++messages > (socket.role === 'host' ? RATE.host : RATE.player)) { socket.close(1008, 'Too many messages'); return; }
+      if (socket.role !== 'host' && data.length > 4096) return;
       let message;
       try { message = JSON.parse(data.toString()); } catch { send(socket, { type: 'error', message: 'Invalid message.' }); return; }
       if (!isPlainObject(message)) return;
@@ -77,20 +81,27 @@ export function attachRelay(http, { path = '/session' } = {}) {
           const name = cleanName(message.name);
           if (!name) { send(socket, { type: 'error', message: 'Type a nickname first.' }); return; }
           if (target.players.size >= LIMITS.playersPerRoom) { send(socket, { type: 'error', message: 'This game is full.' }); return; }
-          player = { id: randomBytes(4).toString('hex'), token: randomBytes(12).toString('hex'), name: uniqueName([...target.players.values()].map(item => item.name), name), socket: null };
+          const look = validLook(message.look) ? message.look : '0.0.0';
+          player = { id: randomBytes(4).toString('hex'), token: randomBytes(12).toString('hex'), name: uniqueName([...target.players.values()].map(item => item.name), name), look, socket: null };
           target.players.set(player.id, player);
         }
         player.socket = socket;
         socket.role = 'player'; socket.code = code; socket.playerId = player.id;
         send(socket, { type: 'joined', code, id: player.id, name: player.name, token: player.token, state: target.state });
-        send(target.host, { type: 'player', event: 'join', id: player.id, name: player.name });
+        send(target.host, { type: 'player', event: 'join', id: player.id, name: player.name, look: player.look });
         return;
       }
 
       if (!room) return;
 
       if (socket.role === 'host') {
-        if (message.type === 'state') {
+        if (message.type === 'world') {
+          // A snapshot of the map for every phone: sent often, so it isn't kept.
+          if (!isPlainObject(message.w)) return;
+          const text = JSON.stringify({ type: 'world', w: message.w });
+          if (text.length > LIMITS.worldBytes + 30) return;
+          for (const player of room.players.values()) if (player.socket?.readyState === WebSocket.OPEN && player.socket.bufferedAmount < 256 * 1024) player.socket.send(text);
+        } else if (message.type === 'state') {
           const state = message.state;
           if (!isPlainObject(state) || !MODES.includes(state.mode) || jsonSize(state) > LIMITS.stateBytes) return;
           room.state = state;
@@ -111,11 +122,10 @@ export function attachRelay(http, { path = '/session' } = {}) {
       if (socket.role !== 'player') return;
       const id = socket.playerId;
       if (room.players.get(id)?.socket !== socket) return;
-      if (message.type === 'input') {
-        // Joystick direction for this player's own frog.
-        const input = message.input;
-        if (!isPlainObject(input) || !Number.isFinite(input.x) || !Number.isFinite(input.y) || Math.abs(input.x) > 1 || Math.abs(input.y) > 1) return;
-        send(room.host, { type: 'input', id, input: { x: Math.round(input.x * 100) / 100, y: Math.round(input.y * 100) / 100 } });
+      if (message.type === 'move') {
+        // Where this player's own frog is now.
+        const move = cleanMove(message);
+        if (move) send(room.host, { type: 'move', id, ...move });
       } else if (message.type === 'react') {
         if (!REACTIONS.includes(message.emoji) || Date.now() - lastReact < 250) return;
         lastReact = Date.now();

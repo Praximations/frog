@@ -60,7 +60,10 @@ export const PREY: Record<PreyKind, { points: number; speed: number; label: stri
   mega: { points: 10, speed: 150, label: 'Giant golden cricket', texture: 'cricket' },
 };
 
-/** Something the frog can catch. Moves in short hops/wiggles inside an area. */
+/**
+ * Something the frog can catch. On the projector it moves in short hops/wiggles and stays where
+ * `canGo` allows; on phones it glides to where the projector says it is.
+ */
 export class Prey {
   readonly sprite: Phaser.GameObjects.Image;
   /** Soft glow so bugs stay visible after dark. */
@@ -70,12 +73,14 @@ export class Prey {
   private heading = Math.random() * Math.PI * 2;
   private turnIn = 0;
   private hop = 0;
+  private target = { x: 0, y: 0 };
 
-  constructor(private readonly scene: Phaser.Scene, readonly kind: PreyKind, x: number, y: number, private readonly area: Phaser.Geom.Rectangle, readonly owner?: { id: string; name: string }) {
+  constructor(private readonly scene: Phaser.Scene, readonly kind: PreyKind, x: number, y: number, private readonly canGo: (x: number, y: number) => boolean = () => true, readonly id = 0, readonly owner?: { id: string; name: string }) {
     this.sprite = scene.add.image(x, y, PREY[kind].texture).setScale(kind === 'mega' ? SCALE * 1.7 : SCALE).setDepth(y);
     const gold = kind === 'golden' || kind === 'mega';
     if (gold) this.sprite.setTint(0xffd84a);
     this.halo = scene.add.image(x, y, 'glow').setScale(kind === 'mega' ? 4 : gold ? 2.6 : 1.8).setDepth(1).setBlendMode(Phaser.BlendModes.ADD).setTint(gold ? 0xffd84a : 0xc8f07a).setAlpha(gold ? .5 : 0);
+    this.target = { x, y };
     if (owner) this.tag = scene.add.text(x, y - 40, owner.name, { fontFamily: 'Pixelify', fontSize: '18px', color: '#fff7d0', stroke: '#2e2a20', strokeThickness: 4 }).setOrigin(.5).setDepth(4800);
   }
 
@@ -95,12 +100,30 @@ export class Prey {
     if (moving) {
       let x = this.sprite.x + Math.cos(this.heading) * speed * delta / 1000;
       let y = this.sprite.y + Math.sin(this.heading) * speed * delta / 1000;
-      if (!this.area.contains(x, y)) { this.heading += Math.PI; x = Phaser.Math.Clamp(x, this.area.left, this.area.right); y = Phaser.Math.Clamp(y, this.area.top, this.area.bottom); }
+      if (!this.canGo(x, y)) { this.heading += Math.PI * (.7 + Math.random() * .6); x = this.sprite.x; y = this.sprite.y; }
       this.sprite.setPosition(x, y).setDepth(y).setFlipX(Math.cos(this.heading) < 0);
     }
     if (hopper) this.sprite.setTexture(moving ? 'cricket-1' : 'cricket');
     this.halo.setPosition(this.sprite.x, this.sprite.y);
     this.tag?.setPosition(this.sprite.x, this.sprite.y - 42);
+  }
+
+  /** Phones: where the projector says the bug is now. */
+  moveTo(x: number, y: number): void { this.target = { x, y }; }
+
+  /** Phones: glide towards the last known spot. */
+  follow(delta: number): void {
+    if (!this.alive) return;
+    const dx = this.target.x - this.sprite.x, dy = this.target.y - this.sprite.y;
+    const far = Math.hypot(dx, dy) > 200;
+    const k = far ? 1 : 1 - Math.exp(-delta / 90);
+    const x = this.sprite.x + dx * k, y = this.sprite.y + dy * k;
+    if (Math.abs(dx) > .5) this.sprite.setFlipX(dx < 0);
+    this.hop += delta;
+    const hopper = this.kind === 'cricket' || this.kind === 'golden' || this.kind === 'mega';
+    if (hopper) this.sprite.setTexture(Math.abs(dx) + Math.abs(dy) > 3 ? 'cricket-1' : 'cricket');
+    this.sprite.setPosition(x, y).setDepth(y);
+    this.halo.setPosition(x, y);
   }
 
   /** How strongly the bug glows (0 in daylight). Gold bugs always shine a little. */

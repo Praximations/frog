@@ -1,10 +1,12 @@
 import type { PhoneState, PrivateMessage } from './ClassHost';
+import type { WorldSnapshot } from './world';
 import { openLink, type Link } from './link';
 
 type Listener = (message?: PrivateMessage) => void;
+type WorldListener = (world: WorldSnapshot) => void;
 const STORE = 'mountain-chicken-player';
 
-/** A classmate's phone: joins with the code and nickname, then steers its own frog. */
+/** A classmate's phone: joins with the code, nickname and frog look, then moves its own frog. */
 class ClassPlayer {
   id = '';
   name = '';
@@ -21,18 +23,21 @@ class ClassPlayer {
   private token = '';
   private socket?: WebSocket;
   private listeners = new Set<Listener>();
+  private worldListeners = new Set<WorldListener>();
   private retry?: number;
   private generation = 0;
 
   subscribe(listener: Listener): () => void { this.listeners.add(listener); return () => this.listeners.delete(listener); }
+  /** Every world snapshot from the projector. */
+  onWorld(listener: WorldListener): () => void { this.worldListeners.add(listener); return () => this.worldListeners.delete(listener); }
   private emit(message?: PrivateMessage): void { this.listeners.forEach(listener => listener(message)); }
 
   /** A saved seat from this tab, so a locked phone can rejoin and keep its frog. */
-  saved(): { code: string; token: string; name: string } | null {
+  saved(): { code: string; token: string; name: string; look?: string } | null {
     try { const value = JSON.parse(sessionStorage.getItem(STORE) || 'null'); return value?.code && value?.token ? value : null; } catch { return null; }
   }
 
-  async join(code: string, name: string, token = ''): Promise<void> {
+  async join(code: string, name: string, look: string, token = ''): Promise<void> {
     this.close(false);
     this.error = ''; this.ended = false;
     const generation = ++this.generation;
@@ -51,7 +56,7 @@ class ClassPlayer {
         if (!settled) { settled = true; clearTimeout(timeout); reject(new Error(message)); }
       };
       const timeout = window.setTimeout(() => { fail(unreachable); socket.close(); }, kind === 'firebase' ? 12000 : 7000);
-      socket.addEventListener('open', () => socket.send(JSON.stringify({ type: 'join', code, name, token: token || undefined })));
+      socket.addEventListener('open', () => socket.send(JSON.stringify({ type: 'join', code, name, look, token: token || undefined })));
       socket.addEventListener('error', () => fail(kind === 'firebase' ? unreachable : 'Could not reach the game. Check the address on the big screen.'));
       socket.addEventListener('close', () => {
         if (this.socket !== socket) return;
@@ -66,17 +71,24 @@ class ClassPlayer {
         if (message.type === 'joined') {
           this.id = message.id; this.name = message.name; this.code = message.code; this.token = message.token;
           this.state = message.state; this.connected = true; this.error = '';
-          try { sessionStorage.setItem(STORE, JSON.stringify({ code: this.code, token: this.token, name: this.name })); } catch { /* optional */ }
+          try { sessionStorage.setItem(STORE, JSON.stringify({ code: this.code, token: this.token, name: this.name, look })); } catch { /* optional */ }
           if (!settled) { settled = true; clearTimeout(timeout); resolve(); }
           this.emit();
         } else if (message.type === 'error') {
           if (!this.connected) { fail(message.message); socket.close(); }
+        } else if (message.type === 'world') {
+          const world = message.w as WorldSnapshot;
+          if (!world || !Array.isArray(world.f)) return;
+          const mine = world.f.find(row => row[0] === this.id);
+          const scored = mine && mine[6] !== this.score;
+          if (mine) this.score = mine[6];
+          this.worldListeners.forEach(listener => listener(world));
+          if (scored) this.emit();
         } else if (message.type === 'state') {
           this.state = message.state; this.emit();
         } else if (message.type === 'private') {
           const data = message.data as PrivateMessage;
           if (data.kind === 'you') { this.name = data.name; this.color = data.color; this.colorName = data.colorName; }
-          if (data.kind === 'score') this.score = data.score;
           if (data.kind === 'final') { this.final = data; this.score = data.score; }
           this.emit(data);
         } else if (message.type === 'kicked' || message.type === 'ended') {
@@ -93,15 +105,18 @@ class ClassPlayer {
     clearTimeout(this.retry);
     const seat = this.saved();
     if (!seat) return;
-    this.retry = window.setTimeout(() => { void this.join(seat.code, seat.name, seat.token).catch(() => this.scheduleRejoin()); }, 2500);
+    this.retry = window.setTimeout(() => { void this.join(seat.code, seat.name, seat.look ?? '0.0.0', seat.token).catch(() => this.scheduleRejoin()); }, 2500);
   }
 
   private send(value: unknown): void { if (this.socket?.readyState === WebSocket.OPEN) this.socket.send(JSON.stringify(value)); }
-  steer(x: number, y: number): void { this.send({ type: 'input', input: { x, y } }); }
+  /** Where your frog is now: position, facing (0 down, 1 up, 2 left, 3 right), moving, and the projector's last respawn number. */
+  move(x: number, y: number, f: number, m: 0 | 1, s: number): void { this.send({ type: 'move', x: Math.round(x), y: Math.round(y), f, m, s }); }
   react(emoji: string): void { this.send({ type: 'react', emoji }); }
   answer(q: string, choice: number): void { this.send({ type: 'answer', q, choice }); }
   /** Makes your frog jump and flash on the big screen. */
   ping(): void { this.send({ type: 'ping' }); }
+  /** Whether messages can be sent right now. */
+  get open(): boolean { return this.socket?.readyState === WebSocket.OPEN; }
 
   close(forget = true): void {
     this.generation++;

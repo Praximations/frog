@@ -7,7 +7,7 @@ import { attachRelay, lanAddresses } from './relay.mjs';
 const dist = fileURLToPath(new URL('../dist/', import.meta.url));
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.ttf': 'font/ttf', '.txt': 'text/plain; charset=utf-8' };
 
-/** Static host for the built game plus the class relay (phones join with a PIN). */
+/** Static host for the built game plus the class relay (phones join with a code). */
 export function createHostServer(root = dist) {
   const http = createServer(async (req, res) => {
     if (!['GET', 'HEAD'].includes(req.method)) { res.writeHead(405); res.end(); return; }
@@ -48,7 +48,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   http.listen(port, '0.0.0.0', () => {
     console.log(`\nMountain Chicken class server\n  Projector (this computer): http://localhost:${port}`);
     for (const address of lanAddresses(port)) console.log(`  Classmates on the same Wi-Fi: ${address}`);
-    console.log('\nKeep this terminal open. Press PLAY on the projector to get a game PIN.\n');
+    console.log('\nKeep this terminal open. Click HOST A GAME on the projector to get a game code.\n');
   });
   http.on('error', error => { console.error(`Cannot start server: ${error.message}`); process.exitCode = 1; });
 }

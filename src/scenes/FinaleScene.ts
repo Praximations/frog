@@ -10,6 +10,8 @@ import { sound } from '../systems/Sound';
 import { go } from '../systems/flow';
 import type { MatchResult } from './PondScene';
 import { artUrl } from '../world/Art';
+import { frogHtml } from '../ui/frogArt';
+import { lookColor, type Look } from '../data/looks';
 import { esc, $ } from '../ui/html';
 
 /**
@@ -20,14 +22,14 @@ export class FinaleScene extends Phaser.Scene {
   private frogs?: AmbientFrogs;
   private root!: HTMLElement;
   private result: MatchResult = { ranks: [], seen: [] };
-  private colors: Record<string, string> = {};
+  private looks: Record<string, Look> = {};
   private step: 'results' | 'story' | 'end' = 'results';
   private deck?: CardDeck;
   constructor() { super('FinaleScene'); }
 
-  create(data: { result?: MatchResult; colors?: Record<string, string> }): void {
+  create(data: { result?: MatchResult; looks?: Record<string, Look> }): void {
     this.result = data.result ?? { ranks: [], seen: [] };
-    this.colors = data.colors ?? {};
+    this.looks = data.looks ?? {};
     this.step = 'results'; this.deck = undefined;
     buildLevel(this, {
       key: 'terrain-title', width: 480, height: 280, palette: PALETTES.day,
@@ -80,12 +82,14 @@ export class FinaleScene extends Phaser.Scene {
     const winner = ranks[0];
     const headline = `<h2 class="final-headline">${winner ? `${esc(winner.name.toUpperCase())} WINS!` : 'THANKS FOR PLAYING!'}</h2>`;
     const places = [ranks[1], ranks[0], ranks[2]];
+    const color = (id: string) => this.looks[id] ? lookColor(this.looks[id]).hex : '#fff';
+    const look = (id: string) => this.looks[id] ?? { skin: 0, hat: 0, color: 7 };
     const blocks = ranks.length ? `<div class="podium">${places.map((rank, column) => {
       const place = [2, 1, 3][column];
-      return rank ? `<div class="podium-col place-${place}" style="--delay:${[1.4, 2.8, 0][column]}s"><div class="podium-player"><img class="pixel" src="${artUrl('frog-down-0', 5)}" alt="" style="filter:drop-shadow(0 0 0 ${this.colors[rank.id] ?? '#fff'}) drop-shadow(0 4px 0 ${this.colors[rank.id] ?? '#fff'})"><b>${esc(rank.name)}</b><span>${rank.score} pts</span></div><div class="podium-block" style="border-top:8px solid ${this.colors[rank.id] ?? '#fff'}"><span>${place}</span></div></div>` : `<div class="podium-col place-${place} empty"></div>`;
+      return rank ? `<div class="podium-col place-${place}" style="--delay:${[1.4, 2.8, 0][column]}s"><div class="podium-player">${frogHtml(look(rank.id))}<b>${esc(rank.name)}</b><span>${rank.score} pts</span></div><div class="podium-block" style="border-top:8px solid ${color(rank.id)}"><span>${place}</span></div></div>` : `<div class="podium-col place-${place} empty"></div>`;
     }).join('')}</div>` : `<div class="solo-win"><img class="pixel" src="${artUrl('portrait', 4)}" alt=""></div>`;
     const rest = ranks.slice(3, 10);
-    const list = rest.length ? `<ol class="final-list" start="4">${rest.map(rank => `<li><i class="dot" style="background:${this.colors[rank.id] ?? '#fff'}"></i>${esc(rank.name)}<em>${rank.score}</em></li>`).join('')}</ol>` : '';
+    const list = rest.length ? `<ol class="final-list" start="4">${rest.map(rank => `<li><i class="dot" style="background:${color(rank.id)}"></i>${esc(rank.name)}<em>${rank.score}</em></li>`).join('')}</ol>` : '';
     podium.innerHTML = `${headline}${blocks}${list}<div class="confetti" aria-hidden="true">${Array.from({ length: 40 }, (_, i) => `<i style="--x:${(i * 37) % 100}%;--d:${(i % 7) * .35}s;--c:${['#c94b3c', '#3f6fb5', '#d9a02a', '#4f8f3a', '#fff0b4'][i % 5]}"></i>`).join('')}</div>`;
     sound.play('tick');
     this.time.delayedCall(1400, () => sound.play('catch', 2));

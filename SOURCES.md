@@ -32,10 +32,10 @@ Facts were checked on 2 October 2026. Every fact card lists the sources it uses 
 
 - **Points** are only for the game. Real numbers appear on the fact cards, in the quiz answers and in the intro and jump-scare captions.
 - **The intro gag** (the frog eating a chicken) is a cartoon joke about the name. It isn't made up from nothing: mountain chickens do sometimes eat birds (diet study above), but not farm chickens.
-- **The rounds** are a way to *experience* the threats, not a simulation. You're a predator eating bugs (niche); feral pigs (invasive animals), hunters with flashlights (hunting) and chytrid fungus clouds (disease) are the real threats; the warm pools stand for the real solar-heated pools (above 30 °C chytrid can't survive). Cage traps, boosts and the dark cave are game ideas.
+- **The rounds** are a way to *experience* the threats, not a simulation. You're a predator eating bugs (niche); feral pigs (invasive animals), hunters with flashlights (hunting) and chytrid fungus clouds (disease) are the real threats; the warm springs stand for the real solar-heated pools (above 30 °C chytrid can't survive). Cage traps, boosts, frog skins and hats, and the hidden cave are game ideas.
 - **Quiz answers** that are wrong on purpose include made-up names (such as *Gallus montanus*); every right answer and every fact after it comes from the sources above.
 - Exactly how chytrid reached Dominica isn't known. The six-degrees card says only what the 2018 study supports: chytrid spread worldwide with the global amphibian trade. The bonus chain says "storms like Hurricane Maria" rather than claiming climate change caused that one storm.
-- The pond, pools and map are illustrations, not a depiction of a specific place or facility. The island map is approximate.
+- The forest map (lake, stream, springs, research hut, volcano) is an illustration inspired by Dominica's rainforest, not a depiction of a specific place or facility. The island map on the habitat card is approximate.
 
 ## Art, sound and fonts
 

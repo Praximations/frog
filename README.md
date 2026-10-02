@@ -1,15 +1,14 @@
 # Mountain Chicken — a class game about a giant, disappearing frog
 
-A pixel-art party game for a ~10 minute endangered-species presentation, played like Kahoot: **one person hosts** on the big screen, and **everyone else joins with a code** on their phone or laptop. Each player is their own mountain chicken frog (*Leptodactylus fallax*) in a shared pond, with their own colour.
+A pixel-art party game for a ~10 minute endangered-species presentation, played like Kahoot: **one person hosts** on the big screen, and **everyone else joins with a code** on their phone or laptop. Each player designs their own mountain chicken frog (*Leptodactylus fallax*): a skin, a hat and a colour. Then they explore a rainforest map on their own screen, with the camera following their frog, collecting insects. The big screen shows the whole map with everyone on it.
 
-**How to play:**
+**How to play** (what the game tells players):
 
-1. Move your frog with your phone (drag the circle) or the arrow keys.
-2. Get close to bugs to eat them. Grab boosts!
+1. Explore the forest: drag on your screen (or arrow keys).
+2. Hop close to bugs to eat them. Grab boosts!
 3. Answer the quiz questions when they pop up.
-4. Whatever you do… don't go in the dark cave.
 
-Three short rounds, each with a different danger. Most points wins.
+Three short rounds, each with a different danger. Most points wins. (There's also a secret: see [Jump-scares](#jump-scares).)
 
 ## Run it in class
 
@@ -51,7 +50,7 @@ Leave that terminal open. On the projector laptop, open **http://localhost:3000*
 
 ### Trying it alone
 
-Open the game twice: **HOST A GAME** in one browser tab, and join with the code from another tab (or your phone). Players on laptops use the arrow keys or WASD, F for "find my frog" and 1–4 for quiz answers. Computer "Wild Frogs" join when fewer than 3 people are playing.
+Open the game twice: **HOST A GAME** in one browser tab, and join with the code from another tab (or your phone). Players on laptops use the arrow keys or WASD (or drag with the mouse), and 1–4 for quiz answers. Computer "Wild Frogs" join when fewer than 3 people are playing.
 
 ## The 10-minute run sheet
 
@@ -59,28 +58,28 @@ The host presses **Enter** or the big green button to move on. Most screens also
 
 | Part | What happens | ~Time |
 |---|---|---|
-| Home page | Everyone opens the website. The host clicks **HOST A GAME**; everyone else types the code and their name. | |
+| Home page | Everyone opens the website. The host clicks **HOST A GAME**; everyone else types the code and their name and designs their frog (skin, hat, colour). | |
 | Intro | "This is a MOUNTAIN CHICKEN." A chicken wanders in… and a giant frog eats it. Reveal: it's a **frog**, *Leptodactylus fallax*, **Critically Endangered**. | 15 s |
-| Lobby | Code and QR code on the big screen. Frogs drop into the pond as people join; each player gets a colour (their phone says "You are the RED frog"). | 1–2 min |
-| How to play | The four rules. | 15 s |
-| **Round 1: Bug Feast** | Eat bugs; wild pigs charge across the pond (−2). | 1 min + 2 quiz questions |
+| Lobby | Code and QR code on the big screen. Frogs drop onto the map as people join, and players can already explore. | 1–2 min |
+| How to play | The three rules. | 15 s |
+| **Round 1: Bug Feast** | Eat bugs; wild pigs burst out of the undergrowth and charge (−2). | 1 min + 2 quiz questions |
 | Did you know? | Fact card: what it eats and its job in the food web | 30 s |
 | **Round 2: Hunter Night** | It's dark. Hunters with flashlights and cage traps catch frogs (−3, plus a jump-scare). | 1 min + 2 quiz questions |
 | Did you know? | Fact card: why it's disappearing | 30 s |
-| **Round 3: Fungus Outbreak** | Green clouds of chytrid fungus make frogs sick (slow, can't eat, lose points) until they hop into a warm pool. | 1 min + 2 quiz questions |
+| **Round 3: Fungus Outbreak** | Green clouds of chytrid fungus make frogs sick (slow, can't eat, lose points) until they hop into a warm spring. | 1 min + 2 quiz questions |
 | Did you know? | Fact card: who's helping | 30 s |
 | Results | Winner, top-3 podium and the next places. | 30 s |
 | The real story | The other 7 fact cards (one per rubric item). | 3 min |
 
 **Quiz questions** pop up at a random moment in the middle of each round, like Kahoot: the question and four coloured answers on the big screen, the four buttons on every phone, 15 seconds. Right answers score 10 points plus up to 5 for speed. The answer is followed by a short fact (for example what the frog eats). There are 19 questions covering every rubric topic, and each game picks different ones.
 
-**Boosts** appear around the pond: ⚡ Speed, 👅 Long tongue, ✖2 Double points and 🍃 Leaf cloak (hunters, pigs and fungus can't get you). Each lasts 8 seconds.
+**Boosts** appear around the map: ⚡ Speed, 👅 Long tongue, ✖2 Double points and 🍃 Leaf cloak (hunters, pigs and fungus can't get you). Each lasts 8 seconds.
 
-**Can't find your frog?** Your phone's top bar is your frog's colour, and the **FIND MY FROG** button makes your frog jump and its ring flash on the big screen.
+**The map** is a patch of Dominican rainforest, about four phone screens wide: a lake with a stream (cross it on the plank bridge or the stepping stones), a pond, tree thickets and boulders to hop around, three warm springs, a research station and a volcano peeking over the trees. Each player's screen follows their own frog (with a white arrow over it) and has a little map in the corner. When a pig charges in from off-screen, a **PIG!** warning flashes at the edge of your screen.
 
 ## Jump-scares
 
-- **The dark cave:** there's a cave in the corner of the pond with a "DON'T GO IN!" sign. Hop in and your phone goes dark ("It's very dark in here…"), then a screaming face fills the screen with a loud shriek and a long buzz. Only the player who went in gets it, so it's a dare. Each player can trigger it once every 45 seconds.
+- **The hidden cave (a secret: it's not in the instructions):** in the bottom-right corner of the map, down a narrow trail through the trees marked only by little glowing mushrooms, there's a mossy cave with crystals and a pair of eyes that blink now and then. Hop into its mouth and your phone goes dark ("It's very dark in here…"), then a screaming face fills the screen with a loud shriek and a long buzz. Only the player who went in gets it; the big screen just shows an "AAAAAH!" by the cave, so others get curious. Each player can trigger it once every 45 seconds.
 - **Getting caught** by a hunter or trap (round 2) flashes a hunter's face on that player's phone. The **first** catch of the game also shows it full-screen on the big screen, with a real hunting fact.
 
 Switch **Jump-scares** off in the host menu (**Esc**) for a gentle "CAUGHT!" and no cave scare. Tell everyone to turn their phone sound up (the buzz only works on Android phones).
@@ -97,7 +96,7 @@ Switch **Jump-scares** off in the host menu (**Esc**) for a gentle "CAUGHT!" and
 | Niche | 6 (food chain), after round 1 | Eating bugs; quiz (what it eats) |
 | Major reasons it is listed | 7 (population crash), after round 2 | Pigs, hunters, traps, fungus; quiz |
 | Importance | 8 (coat of arms) | Quiz |
-| Support being given | 9 (recovery timeline), after round 3 | Warm pools in round 3; quiz |
+| Support being given | 9 (recovery timeline), after round 3 | Warm springs in round 3; quiz |
 | Six degrees of separation | 10 (you → pet frog → … → mountain chicken) | Quiz |
 | Creativity | | The intro gag, phones as controllers, three rounds, boosts, Kahoot quiz, the cave |
 | Extra credit ideas | 5, 10 | Bonus facts on card 5; a second, climate chain on card 10 |
@@ -108,7 +107,7 @@ The home page's **Fact cards** link opens all ten any time (so you can present t
 
 ## Host controls
 
-The host's screen is an overview of the whole pond; the host doesn't play.
+The host's screen is an overview of the whole map; the host doesn't play.
 
 | Key | Does |
 |---|---|
@@ -116,7 +115,7 @@ The host's screen is an overview of the whole pond; the host doesn't play.
 | ← | Previous card |
 | Esc | Host menu: Resume, End this round, Skip to the end, Back to lobby, Fact cards, Sound and Jump-scare switches |
 
-In the lobby, click a player's name to remove them. If fewer than 3 people join, computer "Wild Frogs" fill in. Players download a small page (about 50 KB, plus about 50 KB more on Firebase; no game engine). A phone that locks or drops rejoins with the same frog and points. Between rounds, phones show reaction buttons (🐸 ❤️ 😱 👏 🔥 🦗) that float up the big screen.
+In the lobby, click a player's name to remove them. If fewer than 3 people join, computer "Wild Frogs" fill in. The home page is small (about 80 KB, plus about 50 KB more on Firebase); the game view (about 350 KB, the Phaser engine) downloads while players type their name. A phone that locks or drops rejoins with the same frog and points. Between rounds, phones show reaction buttons (🐸 ❤️ 😱 👏 🔥 🦗) that float up the big screen.
 
 ## Development
 
@@ -129,28 +128,33 @@ npm test           # class-server tests + content, rubric and team-logic tests
 npm run deploy     # build and upload to Firebase Hosting (plus the database rules)
 ```
 
-Phones and the projector talk through one of two links with the same messages: the class server (`server/relay.mjs`, used by `npm run host` and `npm run dev`) or, on Firebase Hosting, the Firebase Realtime Database (`src/systems/firebaseRelay.ts`, downloaded only there). On any other static host, players can't join (the host sees computer frogs only). To try the Firebase link locally, start the database emulator (`npm run firebase:emulators`) and build with `VITE_FIREBASE_DATABASE_URL="http://127.0.0.1:9000/?ns=frog-94c78-default-rtdb"`. Everything else is local: fonts, art (drawn in code) and sound (synthesized with Web Audio).
+Phones and the projector talk through one of two links with the same messages: the class server (`server/relay.mjs`, used by `npm run host` and `npm run dev`) or, on Firebase Hosting, the Firebase Realtime Database (`src/systems/firebaseRelay.ts`, downloaded only there). The projector runs the game: each phone moves its own frog and sends its position about ten times a second; the projector checks it (frogs can't swim or hop through trees) and sends everyone a small snapshot of the map (frogs, bugs, dangers, scores) several times a second. A 30-player game on Firebase uses roughly 200–300 MB of the free plan's 10 GB monthly download allowance. On any other static host, players can't join (the host sees computer frogs only). To try the Firebase link locally, start the database emulator (`npm run firebase:emulators`) and build with `VITE_FIREBASE_DATABASE_URL="http://127.0.0.1:9000/?ns=frog-94c78-default-rtdb"`. Everything else is local: fonts, art (drawn in code) and sound (synthesized with Web Audio).
 
 ### Architecture
 
 ```text
 src/
-  main.ts                 Home page / player screen (phone/PhoneApp, no game engine); #host loads game.ts (Phaser)
-  data/                   journal.ts (10 fact cards), game.ts (rounds, boosts, rules), quiz.ts (19 questions), sources.ts
+  main.ts                 Home page / player screen (phone/PhoneApp); #host loads game.ts (Phaser)
+  data/                   journal.ts (10 fact cards), game.ts (rounds, boosts, rules), quiz.ts (19 questions),
+                          looks.ts (frog skins, hats, colours), sources.ts
   scenes/
     IntroScene            The chicken gag and the name/status reveal
-    PondScene             The host's overview: lobby, how to play, rounds, quiz, results, fact cards
-    FinaleScene           Podium, the remaining fact cards, thank-you and sources
-  play/                   PondGame (a round: bugs, boosts, pigs, hunters and traps, fungus, computer frogs), layout (map)
-  entities/               PartyFrog (a player's frog and its animation), Critters (bugs, decorative frogs)
-  phone/PhoneApp.ts       Home page (join or host) and the player's screen: joystick, quiz buttons, find me, scares
-  systems/                ClassHost / ClassPlayer (networking), link + firebaseRelay (class server or Firebase),
-                          match (colours, ranking, quiz points), Sound, Settings
-  world/                  pixels.ts (all pixel art), Art.ts (Phaser textures), Terrain.ts (ground painter)
-  ui/                     Fact cards and visuals, effects (jump-scare, banners, QR), rules, CSS
+    PondScene             The host's overview of the whole map: lobby, how to play, rounds, quiz, results, fact cards
+    FinaleScene           Podium (with everyone's custom frogs), the remaining fact cards, thank-you and sources
+  play/                   PondGame (a round: bugs, boosts, pigs, hunters and traps, fungus, computer frogs),
+                          PlayerScene + playerGame (a player's own view, following their frog), controls
+  entities/               PartyFrog (a player's frog: skin, hat, animation), Critters (bugs, decorative frogs)
+  phone/PhoneApp.ts       Home page (pick your frog, join or host) and the player's screen: the game view with a
+                          floating joystick, quiz buttons, scares
+  systems/                ClassHost / ClassPlayer (networking), world.ts (the snapshot format), link + firebaseRelay
+                          (class server or Firebase), match (colours, ranking, quiz points), Sound, Settings
+  world/                  map.ts (the map: layout, collisions, the cave; no Phaser), mapView.ts (draws it),
+                          pixels.ts (all pixel art), Art.ts (Phaser textures), Terrain.ts (ground painter)
+  ui/                     Fact cards and visuals, effects (jump-scare, banners, QR), rules, frog pictures, CSS
 server/
-  relay.mjs               Join rooms: host + up to 60 players; joysticks, answers, reactions; validation, rate limits
-  shared.mjs              Nickname, reaction and answer rules shared with the Firebase link
+  relay.mjs               Join rooms: host + up to 60 players; positions, snapshots, answers, reactions;
+                          validation, rate limits
+  shared.mjs              Nickname, look, position, reaction and answer rules shared with the Firebase link
   index.mjs               Serves dist/ plus the relay (npm run host)
 firebase.json, .firebaserc  Firebase Hosting (serves dist/) for project frog-94c78
 database.rules.json         Realtime Database rules for the Firebase link

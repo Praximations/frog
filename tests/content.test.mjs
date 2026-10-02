@@ -47,7 +47,8 @@ test('three short rounds, each with its own danger and a fact card after it', ()
   const keys = new Set(RUBRIC_KEYS);
   for (const round of ROUNDS) assert.ok(keys.has(round.info), `${round.title} shows a real fact card`);
   assert.equal(new Set(ROUNDS.map(round => round.info)).size, ROUNDS.length);
-  assert.equal(GAME.rules.length, 4);
+  assert.equal(GAME.rules.length, 3);
+  assert.ok(GAME.rules.every(rule => !/cave/i.test(rule.text) && rule.icon !== 'cave'), 'the cave stays a secret');
   for (const boost of Object.values(BOOSTS)) assert.ok(boost.seconds > 0 && boost.label && boost.text);
 });
 

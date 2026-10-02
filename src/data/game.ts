@@ -18,7 +18,7 @@ export interface RoundInfo {
   /** 0 = daytime, 1 = full night. */
   darkness: number;
   pigs: boolean;
-  /** Seconds into the round when each hunter walks in. */
+  /** Seconds into the round when each hunter walks in (after the third, only with more players). */
   hunters: number[];
   traps: boolean;
   fungus: boolean;
@@ -39,11 +39,11 @@ export const ROUNDS: RoundInfo[] = [
     id: 'night', number: 2, title: 'Hunter Night', seconds: 60,
     goal: 'Eat bugs in the dark. Stay out of the flashlights!',
     twist: 'Hunters and cage traps catch frogs: −3 points.',
-    darkness: .75, pigs: false, hunters: [2, 16, 34], traps: true, fungus: false, questions: 2, info: 'threats',
+    darkness: .75, pigs: false, hunters: [2, 12, 24, 36, 46], traps: true, fungus: false, questions: 2, info: 'threats',
   },
   {
     id: 'fungus', number: 3, title: 'Fungus Outbreak', seconds: 60,
-    goal: 'Dodge the green fungus. Warm pools cure you!',
+    goal: 'Dodge the green fungus. Warm springs cure you!',
     twist: 'Sick frogs are slow, can\'t eat and lose points.',
     darkness: .2, pigs: false, hunters: [], traps: false, fungus: true, questions: 2, info: 'support',
   },
@@ -59,12 +59,11 @@ export const BOOSTS: Record<BoostKind, { label: string; text: string; icon: stri
 };
 
 export const GAME = {
-  /** The rules on the "How to play" card. */
+  /** The rules on the "How to play" card. (The cave is a secret: it's not in here.) */
   rules: [
-    { icon: 'stick', text: 'Move your frog with your phone (or arrow keys)' },
-    { icon: 'cricket', text: 'Get close to bugs to eat them. Grab boosts!' },
+    { icon: 'stick', text: 'Explore the forest: drag on your screen (or arrow keys)' },
+    { icon: 'cricket', text: 'Hop close to bugs to eat them. Grab boosts!' },
     { icon: 'quiz', text: 'Answer the quiz questions when they pop up' },
-    { icon: 'cave', text: 'Whatever you do… don\'t go in the dark cave' },
   ],
   caughtPenalty: 3,
   pigPenalty: 2,

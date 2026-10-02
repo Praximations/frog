@@ -4,6 +4,7 @@ import { once } from 'node:events';
 import { WebSocket } from 'ws';
 import { createHostServer } from './index.mjs';
 import { cleanName } from './relay.mjs';
+import { validLook, cleanMove } from './shared.mjs';
 
 function peer(url) {
   const socket = new WebSocket(url);
@@ -46,7 +47,7 @@ async function connect(url, count) {
   return peers;
 }
 
-test('a class joins with a code and nicknames; joysticks and reactions reach the host', async t => {
+test('a class joins with a code, nicknames and frog looks; moves, snapshots and reactions flow', async t => {
   const { server, url } = await start(t);
   const [host, ana, ben, twin] = await connect(url, 4);
   host.send({ type: 'host' });
@@ -57,15 +58,15 @@ test('a class joins with a code and nicknames; joysticks and reactions reach the
   assert.match((await ana.next('error')).message, /not active/);
   ana.send({ type: 'join', code, name: '   ' });
   assert.match((await ana.next('error')).message, /nickname/);
-  ana.send({ type: 'join', code, name: '  Ana\u0000 <b>Frog</b>  ' });
+  ana.send({ type: 'join', code, name: '  Ana\u0000 <b>Frog</b>  ', look: '2.5.13' });
   const joined = await ana.next('joined');
   assert.equal(joined.name, 'Ana bFrog/b');
   assert.equal(joined.state.mode, 'lobby');
-  assert.deepEqual(await host.next('player'), { type: 'player', event: 'join', id: joined.id, name: 'Ana bFrog/b' });
+  assert.deepEqual(await host.next('player'), { type: 'player', event: 'join', id: joined.id, name: 'Ana bFrog/b', look: '2.5.13' });
 
-  ben.send({ type: 'join', code, name: 'Ben' });
+  ben.send({ type: 'join', code, name: 'Ben', look: '9.9.99' });
   const benJoined = await ben.next('joined');
-  await host.next('player');
+  assert.equal((await host.next('player')).look, '0.0.0', 'an unknown look falls back to the classic frog');
   twin.send({ type: 'join', code, name: 'BEN' });
   assert.equal((await twin.next('joined')).name, 'BEN 2', 'duplicate nicknames get a number');
   await host.next('player');
@@ -79,14 +80,24 @@ test('a class joins with a code and nicknames; joysticks and reactions reach the
   await new Promise(resolve => setTimeout(resolve, 100));
   assert.equal(server.rooms.get(code).state.mode, 'round');
 
-  // Every player steers their own frog.
-  ana.send({ type: 'input', input: { x: 0.70711, y: -0.70711 } });
-  assert.deepEqual(await host.next('input'), { type: 'input', id: joined.id, input: { x: 0.71, y: -0.71 } });
-  ben.send({ type: 'input', input: { x: -1, y: 0 } });
-  assert.deepEqual(await host.next('input'), { type: 'input', id: benJoined.id, input: { x: -1, y: 0 } });
-  ben.send({ type: 'input', input: { x: 3, y: 0 } });
-  ben.send({ type: 'input', input: 'left' });
-  assert.ok(await host.quiet('input'), 'out-of-range or malformed input is dropped');
+  // Every player moves their own frog and says where it is.
+  ana.send({ type: 'move', x: 812.4, y: 400.6, f: 3, m: 1, s: 2 });
+  assert.deepEqual(await host.next('move'), { type: 'move', id: joined.id, x: 812, y: 401, f: 3, m: 1, s: 2 });
+  ben.send({ type: 'move', x: 100, y: 1300, f: 0, m: 0, s: 1, extra: 'ignored' });
+  assert.deepEqual(await host.next('move'), { type: 'move', id: benJoined.id, x: 100, y: 1300, f: 0, m: 0, s: 1 });
+  ben.send({ type: 'move', x: 99999, y: 0, f: 0, m: 0, s: 1 });
+  ben.send({ type: 'move', x: 10, y: 10, f: 7, m: 0, s: 1 });
+  ben.send({ type: 'move', x: 'left' });
+  assert.ok(await host.quiet('move'), 'out-of-range or malformed moves are dropped');
+
+  // The host's world snapshots reach every player, but players can't send them.
+  const world = { f: [[joined.id, 812, 401, 7, 0, 2, 5]], b: [[1, 0, 300, 300]] };
+  host.send({ type: 'world', w: world });
+  assert.deepEqual((await ana.next('world')).w, world);
+  assert.deepEqual((await ben.next('world')).w, world);
+  ana.send({ type: 'world', w: { f: [] } });
+  host.send({ type: 'world', w: { junk: 'x'.repeat(30000) } });
+  assert.ok(await ben.quiet('world'), 'players and oversized snapshots are refused');
 
   ben.send({ type: 'react', emoji: '🐸' });
   assert.deepEqual(await host.next('react'), { type: 'react', id: benJoined.id, emoji: '🐸' });
@@ -139,6 +150,13 @@ test('rejoin with token keeps the same frog; kick and host shutdown', async t =>
   assert.equal((await back.next('ended')).type, 'ended');
   await once(back.socket, 'close');
   assert.equal(server.rooms.size, 0);
+});
+
+test('frog looks and moves are checked', () => {
+  assert.ok(validLook('0.0.0') && validLook('5.7.19'));
+  for (const look of ['6.0.0', '0.8.0', '0.0.20', '1.2', 'a.b.c', 3, null]) assert.ok(!validLook(look), `${look} is refused`);
+  assert.deepEqual(cleanMove({ x: 1.6, y: 2, f: 1, m: 0, s: 0 }), { x: 2, y: 2, f: 1, m: 0, s: 0 });
+  for (const move of [{ x: -1, y: 0, f: 0, m: 0, s: 0 }, { x: 0, y: 0, f: 0, m: 2, s: 0 }, { x: 0, y: 0, f: 0, m: 0, s: 1.5 }, { x: NaN, y: 0, f: 0, m: 0, s: 0 }]) assert.equal(cleanMove(move), null);
 });
 
 test('nickname cleaning', () => {

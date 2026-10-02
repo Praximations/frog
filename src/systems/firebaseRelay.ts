@@ -3,7 +3,7 @@ import {
   getDatabase, goOffline, goOnline, ref, get, set, update, remove, push, runTransaction, onDisconnect,
   onValue, onChildAdded, onChildChanged, type Database, type DataSnapshot, type Unsubscribe,
 } from '@firebase/database';
-import { cleanName, uniqueName, validAnswer, PLAYERS_PER_ROOM, REACTIONS } from '../../server/shared.mjs';
+import { cleanName, uniqueName, validAnswer, validLook, cleanMove, PLAYERS_PER_ROOM, REACTIONS, WORLD_BYTES } from '../../server/shared.mjs';
 import { FIREBASE_PROJECT } from './link';
 
 /**
@@ -14,8 +14,9 @@ import { FIREBASE_PROJECT } from './link';
  *
  *   host       {at}               claimed by the projector; removed when it disconnects
  *   state      PhoneState         what every phone shows
- *   players/id {name, online}     written by each phone; the projector may fix the name
- *   inputs/id  {x, y, n}          each phone's joystick (n changes every send)
+ *   world      string (JSON)      the projector's latest snapshot of the map (several times a second)
+ *   players/id {name, online, look} written by each phone; the projector may fix the name
+ *   moves/id   {x, y, f, m, s}    where each phone's own frog is
  *   inbox/id/* PrivateMessage     projector → one phone
  *   events/*   {id, type, …}      phone → projector: reactions, quiz answers, "find me"
  *   kicked/id  true               projector removed this phone
@@ -25,7 +26,22 @@ type Message = { type: string; [key: string]: unknown };
 const CONNECTING = 0, OPEN = 1, CLOSED = 3;
 const STATE_BYTES = 3000;
 const randomId = () => Array.from(crypto.getRandomValues(new Uint8Array(6)), byte => byte.toString(16).padStart(2, '0')).join('');
-const round = (value: unknown) => Math.round(Math.max(-1, Math.min(1, Number(value) || 0)) * 100) / 100;
+
+/** Writes only the newest value: while one write is on its way, later ones wait and replace each other. */
+class Latest<T> {
+  private busy = false;
+  private waiting: { value: T } | null = null;
+  constructor(private readonly write: (value: T) => Promise<unknown>) {}
+  push(value: T): void { this.waiting = { value }; if (!this.busy) void this.flush(); }
+  private async flush(): Promise<void> {
+    this.busy = true;
+    while (this.waiting) {
+      const { value } = this.waiting; this.waiting = null;
+      try { await this.write(value); } catch { /* the next value replaces it */ }
+    }
+    this.busy = false;
+  }
+}
 
 function database(databaseURL: string): Database {
   const app = getApps().find(item => item.name === 'frog') ?? initializeApp({ databaseURL, projectId: FIREBASE_PROJECT }, 'frog');
@@ -80,14 +96,18 @@ abstract class FirebaseSocket extends EventTarget {
 /** The projector's side: owns the room. */
 class HostSocket extends FirebaseSocket {
   private code = '';
-  private players = new Map<string, { name: string; online: boolean }>();
+  private players = new Map<string, { name: string; online: boolean; look: string }>();
   private lastEvent = new Map<string, number>();
+  private world = new Latest<string>(text => set(ref(this.db, this.path('world')), text));
   private path(sub = ''): string { return `rooms/${this.code}${sub ? `/${sub}` : ''}`; }
 
   protected async handle(message: Message): Promise<void> {
     if (message.type === 'host' && !this.code) await this.claim();
     if (!this.code) return;
-    if (message.type === 'state') {
+    if (message.type === 'world') {
+      const text = JSON.stringify(message.w ?? null);
+      if (message.w && typeof message.w === 'object' && text.length <= WORLD_BYTES) this.world.push(text);
+    } else if (message.type === 'state') {
       if (JSON.stringify(message.state ?? null).length <= STATE_BYTES) await set(ref(this.db, this.path('state')), message.state);
     } else if (message.type === 'to') {
       const id = String(message.id);
@@ -110,8 +130,8 @@ class HostSocket extends FirebaseSocket {
     this.listeners.push(
       onChildAdded(players, snapshot => this.player(snapshot)),
       onChildChanged(players, snapshot => this.player(snapshot)),
-      onChildAdded(ref(this.db, this.path('inputs')), snapshot => this.input(snapshot)),
-      onChildChanged(ref(this.db, this.path('inputs')), snapshot => this.input(snapshot)),
+      onChildAdded(ref(this.db, this.path('moves')), snapshot => this.move(snapshot)),
+      onChildChanged(ref(this.db, this.path('moves')), snapshot => this.move(snapshot)),
       onChildAdded(ref(this.db, this.path('events')), snapshot => this.event(snapshot)),
     );
     this.emit({ type: 'hosted', code: this.code });
@@ -119,29 +139,30 @@ class HostSocket extends FirebaseSocket {
 
   private player(snapshot: DataSnapshot): void {
     const id = snapshot.key!;
-    const value = snapshot.val() as { name?: unknown; online?: unknown } | null;
+    const value = snapshot.val() as { name?: unknown; online?: unknown; look?: unknown } | null;
     if (!value || typeof value.name !== 'string') return;
     const online = value.online === true;
     const known = this.players.get(id);
     if (!known) {
       if (this.players.size >= PLAYERS_PER_ROOM) { void this.kick(id, false); return; }
       const name = uniqueName([...this.players.values()].map(player => player.name), cleanName(value.name) || 'Frog');
-      this.players.set(id, { name, online });
+      const look = validLook(value.look) ? value.look : '0.0.0';
+      this.players.set(id, { name, online, look });
       if (name !== value.name) void update(ref(this.db, this.path(`players/${id}`)), { name });
-      if (online) this.emit({ type: 'player', event: 'join', id, name });
+      if (online) this.emit({ type: 'player', event: 'join', id, name, look });
       return;
     }
     if (value.name !== known.name) void update(ref(this.db, this.path(`players/${id}`)), { name: known.name });
     if (online !== known.online) {
       known.online = online;
-      this.emit(online ? { type: 'player', event: 'join', id, name: known.name } : { type: 'player', event: 'leave', id });
+      this.emit(online ? { type: 'player', event: 'join', id, name: known.name, look: known.look } : { type: 'player', event: 'leave', id });
     }
   }
 
-  private input(snapshot: DataSnapshot): void {
+  private move(snapshot: DataSnapshot): void {
     const id = snapshot.key!;
-    const value = snapshot.val() as { x?: unknown; y?: unknown } | null;
-    if (value && this.players.has(id)) this.emit({ type: 'input', id, input: { x: round(value.x), y: round(value.y) } });
+    const move = cleanMove(snapshot.val());
+    if (move && this.players.has(id)) this.emit({ type: 'move', id, ...move });
   }
 
   /** Reactions, quiz answers and "find me" taps, checked like the class server checks them. */
@@ -161,7 +182,7 @@ class HostSocket extends FirebaseSocket {
 
   private async kick(id: string, announce = true): Promise<void> {
     this.players.delete(id);
-    await update(ref(this.db, this.path()), { [`kicked/${id}`]: true, [`players/${id}`]: null, [`inputs/${id}`]: null, [`inbox/${id}`]: null });
+    await update(ref(this.db, this.path()), { [`kicked/${id}`]: true, [`players/${id}`]: null, [`moves/${id}`]: null, [`inbox/${id}`]: null });
     if (announce) this.emit({ type: 'player', event: 'removed', id });
   }
 
@@ -172,22 +193,23 @@ class HostSocket extends FirebaseSocket {
   }
 }
 
-/** A phone's side: joins a room and steers its frog. */
+/** A phone's side: joins a room, receives the map and moves its frog. */
 class PlayerSocket extends FirebaseSocket {
   private code = '';
   private id = '';
   private name = '';
+  private look = '0.0.0';
   private state: unknown = { mode: 'lobby' };
   private gone = false;
-  private sent = 0;
+  private moves = new Latest<object>(move => set(ref(this.db, this.path(`moves/${this.id}`)), move));
   private path(sub: string): string { return `rooms/${this.code}/${sub}`; }
 
   protected async handle(message: Message): Promise<void> {
-    if (message.type === 'join' && !this.id) await this.join(String(message.code ?? ''), message.name, typeof message.token === 'string' ? message.token : '');
+    if (message.type === 'join' && !this.id) await this.join(String(message.code ?? ''), message.name, message.look, typeof message.token === 'string' ? message.token : '');
     if (!this.id) return;
-    if (message.type === 'input') {
-      const input = (message.input ?? {}) as { x?: unknown; y?: unknown };
-      await set(ref(this.db, this.path(`inputs/${this.id}`)), { x: round(input.x), y: round(input.y), n: ++this.sent });
+    if (message.type === 'move') {
+      const move = cleanMove(message);
+      if (move) this.moves.push(move);
     } else if (message.type === 'react' && REACTIONS.includes(String(message.emoji))) {
       await push(ref(this.db, this.path('events')), { id: this.id, type: 'react', emoji: String(message.emoji) });
     } else if (message.type === 'answer' && validAnswer(message)) {
@@ -197,7 +219,7 @@ class PlayerSocket extends FirebaseSocket {
     }
   }
 
-  private async join(code: string, rawName: unknown, token: string): Promise<void> {
+  private async join(code: string, rawName: unknown, look: unknown, token: string): Promise<void> {
     if (!/^\d{6}$/.test(code) || !(await within(get(ref(this.db, `rooms/${code}/host`)), 10000)).exists()) {
       this.emit({ type: 'error', message: 'That code is not active. Check the big screen.' });
       return;
@@ -207,7 +229,9 @@ class PlayerSocket extends FirebaseSocket {
     if (rejoin?.exists()) {
       this.id = token;
       this.name = String(rejoin.val().name);
+      this.look = validLook(rejoin.val().look) ? rejoin.val().look : '0.0.0';
     } else {
+      this.look = validLook(look) ? look : '0.0.0';
       this.name = cleanName(rawName);
       if (!this.name) { this.code = ''; this.emit({ type: 'error', message: 'Type a nickname first.' }); return; }
       this.id = randomId();
@@ -219,6 +243,10 @@ class PlayerSocket extends FirebaseSocket {
     const leave = (type: 'kicked' | 'ended') => { if (this.gone) return; this.gone = true; this.emit({ type }); this.close(); };
     this.listeners.push(
       onValue(ref(this.db, this.path('state')), snapshot => { if (snapshot.exists()) { this.state = snapshot.val(); this.emit({ type: 'state', state: this.state }); } }),
+      onValue(ref(this.db, this.path('world')), snapshot => {
+        if (typeof snapshot.val() !== 'string') return;
+        try { this.emit({ type: 'world', w: JSON.parse(snapshot.val()) }); } catch { /* ignored */ }
+      }),
       onValue(ref(this.db, this.path(`players/${this.id}/name`)), snapshot => {
         // The projector may add " 2" to a name that's already taken.
         if (typeof snapshot.val() === 'string' && snapshot.val() !== this.name) { this.name = snapshot.val(); joined(); }
@@ -232,9 +260,9 @@ class PlayerSocket extends FirebaseSocket {
   /** Marks this phone online now, and offline automatically if it disconnects. */
   private async present(): Promise<void> {
     // The record must exist first: the rules check disconnect writes when they're registered.
-    await update(ref(this.db, this.path(`players/${this.id}`)), { name: this.name, online: true });
+    await update(ref(this.db, this.path(`players/${this.id}`)), { name: this.name, online: true, look: this.look });
     await onDisconnect(ref(this.db, this.path(`players/${this.id}/online`))).set(false);
-    await onDisconnect(ref(this.db, this.path(`inputs/${this.id}`))).remove();
+    await onDisconnect(ref(this.db, this.path(`moves/${this.id}`))).remove();
   }
 
   protected onConnected(): void {
@@ -245,7 +273,7 @@ class PlayerSocket extends FirebaseSocket {
   protected async cleanup(): Promise<void> {
     if (!this.id) return;
     await onDisconnect(ref(this.db, this.path(`players/${this.id}/online`))).cancel().catch(() => undefined);
-    await onDisconnect(ref(this.db, this.path(`inputs/${this.id}`))).cancel().catch(() => undefined);
+    await onDisconnect(ref(this.db, this.path(`moves/${this.id}`))).cancel().catch(() => undefined);
     if (!this.gone) await update(ref(this.db, this.path(`players/${this.id}`)), { online: false }).catch(() => undefined);
   }
 }

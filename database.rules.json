@@ -16,6 +16,9 @@
         "state": {
           ".validate": "newData.hasChildren(['mode']) && newData.child('mode').isString()"
         },
+        "world": {
+          ".validate": "newData.isString() && newData.val().length <= 24000"
+        },
         "players": {
           "$id": {
             ".validate": "$id.matches(/^[0-9a-f]{12}$/) && newData.hasChildren(['name', 'online'])",
@@ -27,20 +30,29 @@
             },
             "$other": {
               ".validate": false
+            },
+            "look": {
+              ".validate": "newData.isString() && newData.val().matches(/^[0-9][.][0-9][.][0-9][0-9]?$/)"
             }
           }
         },
-        "inputs": {
+        "moves": {
           "$id": {
-            ".validate": "newData.hasChildren(['x', 'y', 'n'])",
+            ".validate": "newData.hasChildren(['x', 'y', 'f', 'm', 's'])",
             "x": {
-              ".validate": "newData.isNumber() && newData.val() >= -1 && newData.val() <= 1"
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 2560"
             },
             "y": {
-              ".validate": "newData.isNumber() && newData.val() >= -1 && newData.val() <= 1"
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1440"
             },
-            "n": {
-              ".validate": "newData.isNumber()"
+            "f": {
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3"
+            },
+            "m": {
+              ".validate": "newData.isNumber() && (newData.val() === 0 || newData.val() === 1)"
+            },
+            "s": {
+              ".validate": "newData.isNumber() && newData.val() >= 0"
             },
             "$other": {
               ".validate": false

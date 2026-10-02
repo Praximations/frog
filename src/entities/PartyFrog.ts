@@ -1,9 +1,10 @@
 import Phaser from 'phaser';
-import { addPoints, textOn } from '../systems/match';
+import { textOn } from '../systems/match';
 import type { BoostKind } from '../data/game';
+import { frogKey, hatKey, lookColor, type Look } from '../data/looks';
+import type { Facing } from '../systems/world';
 
 export type Control = 'phone' | 'bot';
-type Facing = 'down' | 'up' | 'left' | 'right';
 
 const SIZE = 3.4;
 /** The sprite's origin sits at the frog's feet, so squash and stretch keep it planted. */
@@ -12,25 +13,45 @@ const FEET_OFFSET = (FEET - .5) * 24 * SIZE;
 const HOP_MS = 290;
 const LICK_OUT = 70, LICK_BACK = 110;
 const MOUTH: Record<Facing, [number, number]> = { down: [0, -2], up: [0, -16], left: [-26, -4], right: [26, -4] };
+/** Where a hat sits on the head (art pixels in the 24 × 24 frog). */
+const HAT_X: Record<Facing, number> = { down: 12, up: 12, left: 10, right: 14 };
+
+export interface FrogOptions {
+  id: string;
+  name: string;
+  look: Look;
+  control: Control;
+  /** Name tag font size in world pixels (bigger on the zoomed-out projector). */
+  tagSize?: number;
+}
 
 /**
- * One player's mountain chicken. Moves straight from a joystick vector; the look is all animation:
- * squash-and-stretch hops, breathing, blinking, a tongue that snaps out at bugs, being carried
- * off when caught, and dropping back in.
+ * One player's mountain chicken, in its chosen skin, hat and colour. Whoever owns it moves it
+ * (the projector for computer frogs, the phone for its own frog, snapshots for everyone else's);
+ * this is the look and the animation: squash-and-stretch hops, breathing, blinking, a tongue that
+ * snaps out at bugs, being carried off when caught, and dropping back in. On the projector it also
+ * keeps the frog's score and state.
  */
 export class PartyFrog {
+  readonly id: string;
+  readonly control: Control;
   readonly sprite: Phaser.GameObjects.Image;
   readonly shadow: Phaser.GameObjects.Image;
   readonly ring: Phaser.GameObjects.Ellipse;
+  readonly hat: Phaser.GameObjects.Image;
   readonly tag: Phaser.GameObjects.Text;
   /** Small icon next to the name while a boost is active. */
   readonly badge: Phaser.GameObjects.Image;
+  name: string;
+  look: Look;
   x: number;
   y: number;
-  input = { x: 0, y: 0 };
+  facing: Facing = 'down';
   score = 0;
   roundScore = 0;
   online = true;
+  /** Counts the times the projector moved this frog itself (respawns, knock-backs). */
+  seq = 1;
   /** Boost name → when it runs out. */
   boosts = new Map<BoostKind, number>();
   /** Caught chytrid fungus: slow, can't eat, until it reaches a warm pool. */
@@ -47,7 +68,6 @@ export class PartyFrog {
   nextLick = 0;
   /** Called when the frog lands from a hop (for dust). */
   onLand?: (x: number, y: number, big: boolean) => void;
-  private facing: Facing = 'down';
   private hopT = 0;
   private squash = 0;
   private breath = Math.random() * 10;
@@ -57,51 +77,64 @@ export class PartyFrog {
   private capturedAt = -9999;
   private capturedUntil = 0;
   private capturedTo: { x: number; y: number } | null = null;
-  private home = { x: 0, y: 0 };
   private dropAt = -9999;
   private pingAt = -9999;
   private dropHeight = 380;
   private hidden = false;
+  private tagSize: number;
 
-  constructor(private readonly scene: Phaser.Scene, readonly id: string, public name: string, public color: string, readonly control: Control, x: number, y: number) {
+  constructor(private readonly scene: Phaser.Scene, options: FrogOptions, x: number, y: number) {
+    this.id = options.id; this.name = options.name; this.look = options.look; this.control = options.control;
+    this.tagSize = options.tagSize ?? 24;
     this.x = x; this.y = y;
-    const hex = Phaser.Display.Color.HexStringToColor(color).color;
-    this.ring = scene.add.ellipse(x, y + 12, 84, 28).setStrokeStyle(6, hex, 1).setFillStyle(hex, .35);
+    this.ring = scene.add.ellipse(x, y + 12, 84, 28);
     this.shadow = scene.add.image(x, y + 12, 'frog-shadow').setScale(2.6).setAlpha(.45);
     this.sprite = scene.add.image(x, y, 'frog-down-0').setScale(SIZE).setOrigin(.5, FEET);
-    this.tag = scene.add.text(x, y - 56, name, { fontFamily: 'Pixelify', fontSize: '24px', fontStyle: 'bold', color: textOn(color), backgroundColor: color, padding: { x: 7, y: 1 } }).setOrigin(.5).setDepth(4000);
-    this.tag.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
+    this.hat = scene.add.image(x, y, 'hat-crown').setOrigin(.5, 1).setScale(SIZE).setVisible(false);
+    this.tag = scene.add.text(x, y - 56, this.name, { fontFamily: 'Pixelify', fontSize: `${this.tagSize}px`, fontStyle: 'bold', padding: { x: 7, y: 1 } }).setOrigin(.5).setDepth(4000);
     this.badge = scene.add.image(x, y, 'boost-speed').setScale(2.4).setDepth(4001).setVisible(false);
-    if (control === 'bot') this.tag.setAlpha(.7);
+    this.setLook(options.look);
     this.draw(0, 1, 1, 0);
   }
 
   get isBot(): boolean { return this.control === 'bot'; }
+  get color(): string { return lookColor(this.look).hex; }
   /** Being carried off by a hunter or shut in a trap. */
   isCaptured(now: number): boolean { return now < this.capturedUntil; }
-  canAct(now: number): boolean { return this.online && now >= this.frozenUntil && !this.isCaptured(now) && now - this.dropAt > 350; }
+  canAct(now: number): boolean { return this.online && now >= this.frozenUntil && !this.isCaptured(now) && !this.hidden && now - this.dropAt > 350; }
+  get isHidden(): boolean { return this.hidden; }
 
   /** Where the tongue comes out. */
   mouth(): { x: number; y: number } { const [dx, dy] = MOUTH[this.facing]; return { x: this.x + dx, y: this.y + dy }; }
 
   rename(name: string): void { this.name = name; this.tag.setText(name); }
 
+  setLook(look: Look): void {
+    this.look = look;
+    const hex = Phaser.Display.Color.HexStringToColor(this.color).color;
+    this.ring.setStrokeStyle(6, hex, 1).setFillStyle(hex, .35);
+    this.tag.setColor(textOn(this.color)).setBackgroundColor(this.color);
+    this.tag.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
+    const hat = hatKey(look.hat);
+    if (hat) this.hat.setTexture(hat);
+    this.hat.setVisible(!!hat);
+  }
+
   boosted(kind: BoostKind, now: number): boolean { return (this.boosts.get(kind) ?? 0) > now; }
 
   /** "Find me": a big jump, and the ring and name flash for two seconds. */
   ping(now: number): void { this.pingAt = now; if (this.canAct(now)) this.drop(now, 120); }
 
-  /** Inside the cave: invisible until `until`, then it tumbles back out. */
+  /** Inside the cave: invisible. */
   hide(hidden: boolean): void { this.hidden = hidden; }
 
-  /** Returns the points actually changed (never below zero). */
-  addPoints(points: number): number {
-    const before = this.score;
-    this.score = addPoints(this.score, points);
-    return this.score - before;
-  }
-
   teleport(x: number, y: number): void { this.x = x; this.y = y; this.hopT = 0; }
+
+  /** Turn to face the way it's going. */
+  face(dx: number, dy: number): void {
+    if (!dx && !dy) return;
+    this.facing = Math.abs(dx) > Math.abs(dy) ? dx > 0 ? 'right' : 'left' : dy > 0 ? 'down' : 'up';
+  }
 
   /** Falls in from above and lands with a splat (joining, coming back after being caught, "find me"). */
   drop(now: number, height = 380): void { this.dropAt = now; this.dropHeight = height; this.hopT = 0; }
@@ -109,34 +142,23 @@ export class PartyFrog {
   /** Snap the tongue out at a bug. */
   lick(x: number, y: number, now: number): void {
     this.lickAt = now; this.lickTo = { x, y };
-    const dx = x - this.x, dy = y - this.y;
-    this.facing = Math.abs(dx) > Math.abs(dy) ? dx > 0 ? 'right' : 'left' : dy > 0 ? 'down' : 'up';
+    this.face(x - this.x, y - this.y);
   }
 
-  /** Grabbed: flash, get carried towards `to` (a hunter's sack) or stay put (a trap), then drop back in at `home`. */
-  capture(now: number, to: { x: number; y: number } | null, home: { x: number; y: number }, ms = 2600): void {
-    this.capturedAt = now; this.capturedUntil = now + ms; this.capturedTo = to; this.home = home;
-    this.frozenUntil = now + ms; this.safeUntil = now + ms + 2600;
-    this.input = { x: 0, y: 0 };
+  /** Grabbed: flash, then get carried towards `to` (a hunter's sack) or vanish behind bars (a trap). */
+  capture(now: number, to: { x: number; y: number } | null, ms = 2600): void {
+    this.capturedAt = now; this.capturedUntil = now + ms; this.capturedTo = to;
   }
 
-  update(now: number, delta: number, bounds: Phaser.Geom.Rectangle, speed: number): void {
-    if (this.capturedUntil && now >= this.capturedUntil) {
-      this.capturedUntil = 0;
-      this.teleport(this.home.x, this.home.y);
-      this.drop(now);
-    }
+  /** Ends a capture early (the projector moved the frog back). */
+  release(): void { this.capturedUntil = 0; }
+
+  /** Animates one frame. `moving` keeps it hopping; licks and blinks happen on their own. */
+  update(now: number, delta: number, moving: boolean): void {
     if (this.isCaptured(now)) { this.drawCaptured(now); return; }
+    if (this.capturedUntil) { this.capturedUntil = 0; this.sprite.clearTint(); }
 
-    const frozen = now < this.frozenUntil;
-    const direction = frozen ? new Phaser.Math.Vector2() : new Phaser.Math.Vector2(this.input.x, this.input.y).limit(1);
-    const moving = direction.lengthSq() > 0.01;
-    const pace = speed * (this.isBot ? .72 : 1) * (this.boosted('speed', now) ? 1.5 : 1) * (this.sick ? .55 : 1);
-    this.x = Phaser.Math.Clamp(this.x + direction.x * pace * delta / 1000, bounds.left, bounds.right);
-    this.y = Phaser.Math.Clamp(this.y + direction.y * pace * delta / 1000, bounds.top, bounds.bottom);
-    if (moving && now - this.lickAt > LICK_OUT + LICK_BACK) this.facing = Math.abs(direction.x) > Math.abs(direction.y) ? direction.x > 0 ? 'right' : 'left' : direction.y > 0 ? 'down' : 'up';
-
-    // Hop cycle: keep hopping while moving; finish the current hop when the stick is released.
+    // Hop cycle: keep hopping while moving; finish the current hop when it stops.
     if (moving || this.hopT > 0) {
       this.hopT += delta / HOP_MS;
       if (this.hopT >= 1) { this.hopT = moving ? this.hopT - 1 : 0; this.squash = 1; this.onLand?.(this.x, this.y + 14, false); }
@@ -165,17 +187,19 @@ export class PartyFrog {
     if (licking) frame = 4;
     else if (this.hopT > 0) frame = this.hopT < .14 || this.hopT > .88 ? 1 : 2;
     else if (now >= this.blinkAt) frame = 3;
-    this.sprite.setTexture(`frog-${this.facing}-${frame}`);
-    this.draw(lift, sx, sy, air);
+    this.sprite.setTexture(frogKey(this.look.skin, this.facing, frame));
+    this.draw(lift, sx, sy, air, 0, frame === 1 ? 1 : 0);
 
     const blink = now < this.safeUntil && Math.floor(now / 120) % 2 === 0;
-    this.sprite.setAlpha(this.hidden ? 0 : blink ? .45 : 1);
+    const alpha = this.hidden ? 0 : blink ? .45 : 1;
+    this.sprite.setAlpha(alpha);
+    this.hat.setAlpha(alpha);
     if (this.sick) this.sprite.setTint(0x9fe07a); else if (this.boosted('shield', now)) this.sprite.setTint(0xb8ffb0); else this.sprite.clearTint();
     // "Find me": the ring pulses and grows, the name tag bounces.
     const pinged = now - this.pingAt < 2200;
     const pulse = pinged ? 1 + .5 * Math.abs(Math.sin((now - this.pingAt) / 160)) : 1;
     this.ring.setScale(pulse).setAlpha(this.hidden ? 0 : 1);
-    this.tag.setScale(pinged ? 1.25 : 1).setAlpha(this.hidden ? 0 : this.isBot ? .7 : 1);
+    this.tag.setScale(pinged ? 1.25 : 1).setAlpha(this.hidden ? 0 : this.isBot || !this.online ? .6 : 1);
     this.shadow.setAlpha(this.hidden ? 0 : this.shadow.alpha);
     const active = [...this.boosts].find(([, until]) => until > now);
     this.badge.setVisible(!!active && !this.hidden);
@@ -200,8 +224,9 @@ export class PartyFrog {
     this.ring.setVisible(false);
     if (t < 280) {
       // Struggle: flash and shake.
-      this.sprite.setTexture(`frog-${this.facing}-4`).setTintFill(Math.floor(t / 70) % 2 ? 0xffffff : 0xff6a4a);
+      this.sprite.setTexture(frogKey(this.look.skin, this.facing, 4)).setTintFill(Math.floor(t / 70) % 2 ? 0xffffff : 0xff6a4a);
       this.draw(0, 1.15, .9, 0, Math.sin(t / 18) * 5);
+      this.ring.setVisible(false);
       return;
     }
     this.sprite.clearTint();
@@ -209,29 +234,39 @@ export class PartyFrog {
     if (this.capturedTo) {
       // Swept up into the hunter's sack.
       const x = this.x + (this.capturedTo.x - this.x) * p, y = this.y + (this.capturedTo.y - this.y) * p;
-      this.sprite.setPosition(x, y + FEET_OFFSET - Math.sin(Math.PI * p) * 60).setScale(SIZE * (1 - p), SIZE * (1 - p)).setDepth(this.y + 1);
+      this.sprite.setPosition(x, y + FEET_OFFSET - Math.sin(Math.PI * p) * 60).setScale(SIZE * (1 - p), SIZE * (1 - p)).setDepth(this.y + 1).setAlpha(1);
       this.shadow.setVisible(p < 1).setScale(2.6 * (1 - p), 2.6 * (1 - p));
+      this.hat.setVisible(false);
       this.tag.setPosition(this.x, this.y - 54);
     } else {
       // Shut in a cage: the frog stays put, hidden behind the bars.
-      this.sprite.setAlpha(.0);
+      this.sprite.setAlpha(0);
+      this.hat.setVisible(false);
       this.shadow.setVisible(false);
     }
   }
 
-  private draw(lift: number, sx: number, sy: number, air: number, shake = 0): void {
-    this.sprite.setVisible(true).setPosition(this.x + shake, this.y + FEET_OFFSET - lift).setScale(SIZE * sx, SIZE * sy).setDepth(this.y + 1);
+  private draw(lift: number, sx: number, sy: number, air: number, shake = 0, crouch = 0): void {
+    const scaleX = SIZE * sx, scaleY = SIZE * sy;
+    this.sprite.setVisible(true).setPosition(this.x + shake, this.y + FEET_OFFSET - lift).setScale(scaleX, scaleY).setDepth(this.y + 1);
+    const hat = !!hatKey(this.look.hat);
+    if (hat) {
+      this.hat.setVisible(true)
+        .setPosition(this.sprite.x + (HAT_X[this.facing] - 12) * scaleX, this.sprite.y + (5 + crouch - 24 * FEET) * scaleY)
+        .setScale(scaleX, scaleY).setFlipX(this.facing === 'right').setDepth(this.y + 1.5);
+    }
     this.shadow.setVisible(true).setPosition(this.x, this.y + 12).setDepth(this.y - 2).setScale(2.6 * (1 - .3 * air), 2.6 * (1 - .3 * air)).setAlpha(.45 * (1 - .4 * air));
     this.ring.setVisible(true).setPosition(this.x, this.y + 13).setDepth(this.y - 1);
-    this.tag.setPosition(this.x, this.y - 60 - lift * .6);
+    this.tag.setPosition(this.x, this.y - 56 - (hat ? 30 : 0) - (this.tagSize - 24) * .6 - lift * .6);
   }
 
   setVisible(visible: boolean): void {
     for (const part of [this.sprite, this.shadow, this.ring, this.tag]) part.setVisible(visible);
+    this.hat.setVisible(visible && !!hatKey(this.look.hat));
     if (!visible) this.badge.setVisible(false);
   }
 
   destroy(): void {
-    for (const part of [this.sprite, this.shadow, this.ring, this.tag, this.badge]) part.destroy();
+    for (const part of [this.sprite, this.shadow, this.ring, this.hat, this.tag, this.badge]) part.destroy();
   }
 }

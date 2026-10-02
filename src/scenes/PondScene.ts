@@ -1,16 +1,18 @@
 import Phaser from 'phaser';
 import { PartyFrog } from '../entities/PartyFrog';
 import { PondGame, type GameContext } from '../play/PondGame';
-import { BOUNDS, CAVE, WORLD, ZOOM, openSpot } from '../play/layout';
+import { CAVE, CAVE_EXIT, MAP, clearLine, randomSpot, step, walkable, type Point } from '../world/map';
+import { MapView } from '../world/mapView';
 import { BOOSTS, GAME, ROUNDS, questionTimes, type BoostKind, type RoundInfo } from '../data/game';
+import { formatLook, lookColor, parseLook, randomLook } from '../data/looks';
 import { pickQuestions, type Question } from '../data/quiz';
 import { cardByKey, type RubricKey } from '../data/journal';
-import { COLORS, pickColor, ranking, botsNeeded, quizPoints, textOn, type Ranked } from '../systems/match';
+import { ranking, botsNeeded, quizPoints, textOn, type Ranked } from '../systems/match';
 import { classHost, type PhoneState, type PlayerEvent } from '../systems/ClassHost';
+import { FACINGS, FLAG, frogPace, type FrogRow, type WorldSnapshot } from '../systems/world';
 import { sound } from '../systems/Sound';
 import { settings, saveSettings } from '../systems/Settings';
 import { go } from '../systems/flow';
-import { pondDecor, pondTerrain } from '../world/Terrain';
 import { ensureArt, artUrl } from '../world/Art';
 import { showOverlay } from '../ui/ScreenOverlay';
 import { showCards, showJournal, type CardDeck } from '../ui/cards';
@@ -19,19 +21,24 @@ import { banner, floatReaction, jumpscare, qrSvg } from '../ui/effects';
 import { esc, $ } from '../ui/html';
 
 type Phase = 'lobby' | 'howto' | 'roundIntro' | 'countdown' | 'play' | 'quiz' | 'reveal' | 'results' | 'info' | 'over';
-const SPEED = 290;
-const DAY = Phaser.Display.Color.ValueToColor(0xffffff);
-const NIGHT = Phaser.Display.Color.ValueToColor(0x56668a);
 const SHAPES = ['▲', '◆', '●', '■'];
+/** The projector shows the whole map. */
+const ZOOM = 1280 / MAP.width;
+/** Text in the world is drawn bigger, because the overview is zoomed out. */
+const TEXT = 1.5;
 
 export interface MatchResult { ranks: Ranked[]; seen: RubricKey[] }
 
 interface Quiz { question: Question; number: number; startedAt: number; answers: Map<string, { choice: number; at: number }> }
+/** Where a phone's frog is heading (the phone moves it; the projector glides it there). */
+interface Target { x: number; y: number; moving: boolean; at: number }
 
 /**
- * The host's screen: an overview of the whole pond for the projector. The host doesn't play.
- * Lobby → How to play → three rounds. In each round, quiz questions pop up in the middle and a
- * fact card follows. Players join from any phone or laptop with the code.
+ * The host's screen: an overview of the whole map for the projector. The host doesn't play; it
+ * runs the game. Lobby → How to play → three rounds. In each round, quiz questions pop up in the
+ * middle and a fact card follows. Players join from any phone or laptop with the code, see the
+ * forest around their own frog on their own screen and move it themselves; this scene checks
+ * their moves, plays out the bugs and dangers, and sends everyone snapshots of the map.
  */
 export class PondScene extends Phaser.Scene {
   private frogs = new Map<string, PartyFrog>();
@@ -47,16 +54,18 @@ export class PondScene extends Phaser.Scene {
   private seen: RubricKey[] = [];
   private autoNext?: Phaser.Time.TimerEvent;
   private deck?: CardDeck;
-  private darkness!: Phaser.GameObjects.Rectangle;
-  private decor: Phaser.GameObjects.Image[] = [];
+  private map!: MapView;
   private dust!: Phaser.GameObjects.Particles.ParticleEmitter;
   private root!: HTMLElement;
-  private dirty = new Set<string>();
-  private lastScoreSend = 0;
   private lastHud = 0;
   private lastSound = 0;
   private lastLeaders = '';
-  private botTargets = new Map<string, { x: number; y: number; until: number }>();
+  private lastShot = 0;
+  private lastReveal = 0;
+  private shots = 0;
+  private rosterChanged = true;
+  private targets = new Map<string, Target>();
+  private botTargets = new Map<string, { x: number; y: number; until: number; from: Point; check: number }>();
   private context!: GameContext;
 
   constructor() { super('PondScene'); }
@@ -65,13 +74,11 @@ export class PondScene extends Phaser.Scene {
 
   create(): void {
     this.frogs = new Map(); this.phase = 'lobby'; this.play = undefined; this.roundIndex = -1; this.paused = false; this.holdUntil = 0;
-    this.dirty = new Set(); this.botTargets = new Map(); this.lastLeaders = ''; this.scaredProjector = false; this.seen = []; this.quiz = undefined; this.deck = undefined;
+    this.targets = new Map(); this.botTargets = new Map(); this.lastLeaders = ''; this.scaredProjector = false; this.seen = []; this.quiz = undefined; this.deck = undefined;
+    this.shots = 0; this.rosterChanged = true;
     ensureArt(this);
-    this.cameras.main.setZoom(ZOOM).centerOn(WORLD.width / 2, WORLD.height / 2);
-    pondTerrain(this, true);
-    this.darkness = this.add.rectangle(WORLD.width / 2, WORLD.height / 2, WORLD.width, WORLD.height, 0x061226, 0).setDepth(-50);
-    this.decor = pondDecor(this, true);
-    this.buildCave();
+    this.cameras.main.setZoom(ZOOM).centerOn(MAP.width / 2, MAP.height / 2);
+    this.map = new MapView(this);
     this.dust = this.add.particles(0, 0, 'dust', { lifespan: 380, speed: { min: 25, max: 80 }, angle: { min: 190, max: 350 }, scale: { start: 2.4, end: 0 }, alpha: { start: .75, end: 0 }, emitting: false }).setDepth(0);
     this.context = {
       scene: this,
@@ -96,7 +103,7 @@ export class PondScene extends Phaser.Scene {
       window.removeEventListener('keydown', onKey, true);
       offPlayers(); offEvents(); this.play?.end(); this.deck?.close();
     });
-    for (const player of classHost.players.values()) this.addPhoneFrog(player.id, player.name);
+    for (const player of classHost.players.values()) this.addPhoneFrog(player.id, player.name, player.look);
     sound.music('forest');
     this.cameras.main.fadeIn(400, 0, 0, 0);
     this.publish({ mode: 'lobby' });
@@ -107,15 +114,9 @@ export class PondScene extends Phaser.Scene {
 
   // ---------------------------------------------------------------- world
 
-  private buildCave(): void {
-    this.add.image(CAVE.x, CAVE.y + 46, 'cave').setOrigin(.5, 1).setScale(4).setDepth(CAVE.y + 46);
-    this.add.image(CAVE.x - 170, CAVE.y + 40, 'sign').setOrigin(.5, 1).setScale(4).setDepth(CAVE.y + 40);
-    this.label(CAVE.x - 170, CAVE.y - 44, 'DON\'T GO IN!', 18, '#ff5a3a', '#1d1712');
-  }
-
   /** Text in the world, kept smooth even though the camera is zoomed out. */
   private label(x: number, y: number, text: string, size: number, color: string, background?: string): Phaser.GameObjects.Text {
-    const label = this.add.text(x, y, text, { fontFamily: 'PressStart', fontSize: `${size}px`, color, stroke: '#1d1712', strokeThickness: background ? 0 : 6, backgroundColor: background, padding: background ? { x: 8, y: 6 } : undefined }).setOrigin(.5).setDepth(5000);
+    const label = this.add.text(x, y, text, { fontFamily: 'PressStart', fontSize: `${Math.round(size * TEXT)}px`, color, stroke: '#1d1712', strokeThickness: background ? 0 : 8, backgroundColor: background, padding: background ? { x: 8, y: 6 } : undefined }).setOrigin(.5).setDepth(5000);
     label.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
     return label;
   }
@@ -126,46 +127,39 @@ export class PondScene extends Phaser.Scene {
   }
 
   /** 0 = daytime, 1 = full night. Only the ground and scenery darken, so frogs stay easy to see. */
-  private setDarkness(level: number): void {
-    this.tweens.add({ targets: this.darkness, fillAlpha: .06 + level * .5, duration: 1200 });
-    const color = Phaser.Display.Color.Interpolate.ColorWithColor(DAY, NIGHT, 100, Math.round(level * 100));
-    const tint = Phaser.Display.Color.GetColor(color.r, color.g, color.b);
-    for (const item of this.decor) item.setTint(tint);
-  }
+  private setDarkness(level: number): void { this.map.setDarkness(level); }
 
   // ---------------------------------------------------------------- players
 
   private humans(): PartyFrog[] { return [...this.frogs.values()].filter(frog => !frog.isBot); }
 
-  private colorIndex(frog: PartyFrog): number { return COLORS.findIndex(color => color.hex === frog.color); }
-
-  private addFrog(id: string, name: string, control: PartyFrog['control']): PartyFrog {
-    const color = COLORS[pickColor([...this.frogs.values()].map(frog => this.colorIndex(frog)))];
-    const spot = openSpot();
-    const frog = new PartyFrog(this, id, name, color.hex, control, spot.x, spot.y);
+  private addFrog(id: string, name: string, look: string, control: PartyFrog['control']): PartyFrog {
+    const spot = randomSpot([...this.frogs.values()].map(frog => ({ x: frog.x, y: frog.y, r: 120 })));
+    const frog = new PartyFrog(this, { id, name, look: parseLook(look), control, tagSize: 34 }, spot.x, spot.y);
     frog.onLand = (x, y, big) => this.dust.explode(big ? 12 : 3, x, y);
     frog.drop(this.time.now);
     this.frogs.set(id, frog);
+    this.targets.set(id, { x: spot.x, y: spot.y, moving: false, at: 0 });
+    this.rosterChanged = true;
     this.renderPlayers();
     return frog;
   }
 
-  private addPhoneFrog(id: string, name: string): void {
+  private addPhoneFrog(id: string, name: string, look: string): void {
     const existing = this.frogs.get(id);
-    if (existing) { existing.online = true; existing.tag.setAlpha(1); }
-    else { this.addFrog(id, name, 'phone'); sound.play('join'); }
+    if (existing) { existing.online = true; existing.setLook(parseLook(look)); this.rosterChanged = true; }
+    else { this.addFrog(id, name, look, 'phone'); sound.play('join'); }
     const frog = this.frogs.get(id)!;
-    const color = COLORS[this.colorIndex(frog)];
+    const color = lookColor(frog.look);
     classHost.sendTo(id, { kind: 'you', name: frog.name, color: color.hex, colorName: color.name });
-    classHost.sendTo(id, { kind: 'score', score: frog.score });
   }
 
   private onClass(event: { type: 'join' | 'leave' | 'removed' | 'status'; id?: string }): void {
     if (event.type === 'status') { if (this.phase === 'lobby') this.renderLobby(); return; }
     const id = event.id!;
-    if (event.type === 'join') { const player = classHost.players.get(id); if (player) this.addPhoneFrog(id, player.name); }
-    else if (event.type === 'leave') { const frog = this.frogs.get(id); if (frog) { frog.online = false; frog.input = { x: 0, y: 0 }; frog.tag.setAlpha(.35); } }
-    else if (event.type === 'removed') { this.frogs.get(id)?.destroy(); this.frogs.delete(id); }
+    if (event.type === 'join') { const player = classHost.players.get(id); if (player) this.addPhoneFrog(id, player.name, player.look); }
+    else if (event.type === 'leave') { const frog = this.frogs.get(id); if (frog) frog.online = false; }
+    else if (event.type === 'removed') { this.frogs.get(id)?.destroy(); this.frogs.delete(id); this.targets.delete(id); this.rosterChanged = true; }
     this.renderPlayers();
   }
 
@@ -183,8 +177,8 @@ export class PondScene extends Phaser.Scene {
   private syncBots(): void {
     const bots = [...this.frogs.values()].filter(frog => frog.isBot);
     const need = botsNeeded(this.humans().filter(frog => frog.online).length);
-    for (let i = bots.length; i < need; i++) this.addFrog(`bot-${i}`, `Wild Frog ${i + 1}`, 'bot');
-    for (const bot of bots.slice(need)) { bot.destroy(); this.frogs.delete(bot.id); }
+    for (let i = bots.length; i < need; i++) this.addFrog(`bot-${i}`, `Wild Frog ${i + 1}`, formatLook(randomLook()), 'bot');
+    for (const bot of bots.slice(need)) { bot.destroy(); this.frogs.delete(bot.id); this.targets.delete(bot.id); this.rosterChanged = true; }
   }
 
   private award(frog: PartyFrog, points: number, x: number, y: number): void {
@@ -194,12 +188,26 @@ export class PondScene extends Phaser.Scene {
     const changed = frog.score - before;
     if (points > 0 || changed) this.float(x, y - 20, points > 0 ? `+${points}` : `${changed}`, points > 0 ? '#fff6b0' : '#ff8a6a', points >= 5 ? 26 : points >= 3 ? 22 : 18);
     if (points > 0 && this.time.now - this.lastSound > 70) { this.lastSound = this.time.now; sound.play(points >= 3 ? 'catch' : 'gulp', points); }
-    if (frog.control === 'phone') this.dirty.add(frog.id);
+  }
+
+  /** Moves a frog itself (respawn, knock-back, out of the cave). Its phone follows. */
+  private place(frog: PartyFrog, x: number, y: number, drop = 380): void {
+    frog.teleport(x, y);
+    frog.seq++;
+    this.targets.set(frog.id, { x, y, moving: false, at: this.time.now });
+    if (drop) frog.drop(this.time.now, drop);
   }
 
   private caught(frog: PartyFrog, by: 'hunter' | 'trap', grabber: { x: number; y: number } | null): void {
-    const now = this.time.now;
-    frog.capture(now, grabber, openSpot());
+    const now = this.time.now, ms = 2600;
+    frog.capture(now, grabber, ms);
+    frog.frozenUntil = now + ms; frog.safeUntil = now + ms + 2600;
+    this.time.delayedCall(ms, () => {
+      if (!this.frogs.has(frog.id)) return;
+      frog.release();
+      const home = randomSpot([...this.frogs.values()].map(item => ({ x: item.x, y: item.y, r: 100 })));
+      this.place(frog, home.x, home.y);
+    });
     this.award(frog, -GAME.caughtPenalty, frog.x, frog.y - 60);
     this.float(frog.x, frog.y - 100, by === 'trap' ? 'TRAPPED!' : 'CAUGHT!', '#ff6a4a', 22, 30, 1500);
     if (grabber) this.float(grabber.x, grabber.y - 80, 'GOTCHA!', '#fff0b4', 18, 20, 1100);
@@ -216,8 +224,9 @@ export class PondScene extends Phaser.Scene {
   private knocked(frog: PartyFrog, dir: 1 | -1): void {
     const now = this.time.now;
     frog.frozenUntil = now + 1200; frog.safeUntil = now + 2400;
-    frog.teleport(Phaser.Math.Clamp(frog.x + dir * 110, BOUNDS.left, BOUNDS.right), frog.y);
-    frog.drop(now, 90);
+    let x = frog.x;
+    for (let i = 0; i < 11; i++) { const next = step(x, frog.y, dir * 10, 0); if (next.x === x) break; x = next.x; }
+    this.place(frog, x, frog.y, 90);
     this.award(frog, -GAME.pigPenalty, frog.x, frog.y - 60);
     this.float(frog.x, frog.y - 100, 'OINK!', '#ffb0c0', 22, 30, 1200);
     sound.play('hurt');
@@ -238,36 +247,41 @@ export class PondScene extends Phaser.Scene {
     if (frog.control === 'phone') classHost.sendTo(frog.id, { kind: 'sick', sick });
   }
 
-  /** The dark cave: hop in and something happens (on your phone). Then it spits you back out. */
+  /** The hidden cave: hop in and something happens (on your phone). Then it spits you back out. */
   private checkCave(frog: PartyFrog, now: number): void {
     if (!frog.canAct(now) || Math.hypot(frog.x - CAVE.x, frog.y - CAVE.y) > CAVE.radius) return;
-    const push = () => frog.teleport(CAVE.x - 60, CAVE.y + 90);
-    if (now - frog.caveAt < GAME.caveCooldown * 1000) { push(); frog.drop(now, 60); this.float(frog.x, frog.y - 80, 'NOT AGAIN…', '#c8c8c8', 16, 30, 1000); return; }
+    if (now - frog.caveAt < GAME.caveCooldown * 1000) { this.place(frog, CAVE_EXIT.x, CAVE_EXIT.y, 60); this.float(frog.x, frog.y - 80, 'NOT AGAIN…', '#c8c8c8', 16, 30, 1000); return; }
     frog.caveAt = now;
     frog.hide(true);
     frog.frozenUntil = now + 4200; frog.safeUntil = now + 6500;
-    frog.input = { x: 0, y: 0 };
     this.cameras.main.shake(250, .004);
     this.time.delayedCall(2900, () => {
-      this.float(CAVE.x, CAVE.y - 40, 'AAAAAH!', '#ff5a3a', 26, 70, 1400);
+      this.float(CAVE.x - 40, CAVE.y - 140, 'AAAAAH!', '#ff5a3a', 26, 70, 1400);
       sound.play('hurt');
     });
-    this.time.delayedCall(4200, () => { frog.hide(false); push(); frog.drop(this.time.now, 140); });
+    this.time.delayedCall(4200, () => { if (!this.frogs.has(frog.id)) return; frog.hide(false); this.place(frog, CAVE_EXIT.x, CAVE_EXIT.y, 140); });
     if (frog.control === 'phone' && settings.jumpscares) classHost.sendTo(frog.id, { kind: 'shock' });
   }
 
   // ---------------------------------------------------------------- loop
 
+  /** Frogs can move in the lobby and while a round is on. */
+  private get moving(): boolean { return !this.paused && (this.phase === 'lobby' || this.phase === 'play') && this.time.now >= this.holdUntil; }
+
   update(time: number, delta: number): void {
     const dt = Math.min(delta, 100);
-    const moving = !this.paused && (this.phase === 'lobby' || this.phase === 'play') && time >= this.holdUntil;
+    const moving = this.moving;
     for (const frog of this.frogs.values()) {
-      if (frog.control === 'phone') frog.input = frog.online ? classHost.input(frog.id) : { x: 0, y: 0 };
-      else frog.input = this.phase === 'play' ? this.botInput(frog, time) : { x: 0, y: 0 };
-      if (!moving) frog.input = { x: 0, y: 0 };
-      frog.update(time, moving ? dt : 0, BOUNDS, SPEED);
+      let hopping = false;
+      if (frog.control === 'phone') hopping = this.followPhone(frog, time, dt, moving);
+      else if (moving && this.phase === 'play' && frog.canAct(time)) hopping = this.moveBot(frog, time, dt);
+      frog.update(time, dt, hopping);
+      const target = this.targets.get(frog.id);
+      if (target) target.moving = hopping;
       if (moving) this.checkCave(frog, time);
     }
+    if (time - this.lastReveal > 150) { this.lastReveal = time; this.map.reveal([...this.frogs.values()].filter(frog => !frog.isHidden)); }
+    if (time - this.lastShot > (this.moving ? (classHost.kind === 'firebase' ? 150 : 100) : 400)) { this.lastShot = time; this.broadcast(time); }
     if (this.phase === 'play' && !this.paused && time >= this.holdUntil && this.play) {
       this.play.update(time, dt);
       const next = this.questions[this.quizIndex];
@@ -280,22 +294,80 @@ export class PondScene extends Phaser.Scene {
       if (left <= 0 || (waiting.length && waiting.every(frog => this.quiz!.answers.has(frog.id)) && time - this.quiz.startedAt > 1500)) this.reveal();
     }
     if (time - this.lastHud > 150) { this.lastHud = time; this.updateHud(); }
-    if (time - this.lastScoreSend > 600 && this.dirty.size) {
-      this.lastScoreSend = time;
-      for (const id of this.dirty) { const frog = this.frogs.get(id); if (frog) classHost.sendTo(id, { kind: 'score', score: frog.score }); }
-      this.dirty.clear();
-    }
   }
 
-  private botInput(frog: PartyFrog, now: number): { x: number; y: number } {
+  /**
+   * A phone moves its own frog and says where it is. Accept the newest position (unless it's from
+   * before the projector last moved the frog, or impossible), and glide there smoothly.
+   */
+  private followPhone(frog: PartyFrog, now: number, dt: number, moving: boolean): boolean {
+    const target = this.targets.get(frog.id)!;
+    const move = classHost.move(frog.id);
+    if (move && move.at > target.at && moving && frog.canAct(now) && move.s === frog.seq) {
+      target.at = move.at;
+      if (walkable(move.x, move.y, 8)) {
+        if (Math.hypot(move.x - target.x, move.y - target.y) > 700) this.place(frog, frog.x, frog.y, 0); // too far: put the phone right
+        else { target.x = move.x; target.y = move.y; frog.facing = FACINGS[move.f]; }
+      }
+    }
+    const dx = target.x - frog.x, dy = target.y - frog.y, far = Math.hypot(dx, dy);
+    if (far < .5) return !!move?.m && now - move.at < 300 && moving;
+    const k = 1 - Math.exp(-dt / 70);
+    frog.x += dx * k; frog.y += dy * k;
+    return far > 2 || (!!move?.m && moving);
+  }
+
+  /** Computer frogs head for a bug they can reach, and pick somewhere else when they get stuck. */
+  private moveBot(frog: PartyFrog, now: number, dt: number): boolean {
     let target = this.botTargets.get(frog.id);
     if (!target || now > target.until) {
-      const point = this.play?.botTarget(frog, now) ?? openSpot();
-      target = { x: point.x + Phaser.Math.Between(-12, 12), y: point.y + Phaser.Math.Between(-12, 12), until: now + 300 + Math.random() * 500 };
+      const point = this.play?.botTarget(frog) ?? randomSpot();
+      target = { x: point.x + Phaser.Math.Between(-12, 12), y: point.y + Phaser.Math.Between(-12, 12), until: now + 300 + Math.random() * 500, from: { x: frog.x, y: frog.y }, check: now + 700 };
       this.botTargets.set(frog.id, target);
     }
     const dx = target.x - frog.x, dy = target.y - frog.y, length = Math.hypot(dx, dy);
-    return length < 8 ? { x: 0, y: 0 } : { x: dx / length, y: dy / length };
+    if (length < 8) return false;
+    const flags = (frog.boosted('speed', now) ? FLAG.speed : 0) | (frog.sick ? FLAG.sick : 0);
+    const pace = frogPace(flags, true) * dt / 1000;
+    const next = step(frog.x, frog.y, dx / length * pace, dy / length * pace);
+    frog.face(next.x - frog.x, next.y - frog.y);
+    frog.x = next.x; frog.y = next.y;
+    if (now > target.check) {
+      // Hardly moved: wander somewhere it can hop straight to for a while.
+      if (Math.hypot(frog.x - target.from.x, frog.y - target.from.y) < 30) {
+        let spot = randomSpot();
+        for (let i = 0; i < 8 && !clearLine(frog, spot); i++) spot = randomSpot();
+        target = { ...spot, until: now + 1800, from: { x: frog.x, y: frog.y }, check: now + 2000 };
+        this.botTargets.set(frog.id, target);
+      } else { target.from = { x: frog.x, y: frog.y }; target.check = now + 700; }
+    }
+    return true;
+  }
+
+  /** Tells every phone where everything is. */
+  private broadcast(now: number): void {
+    if (!classHost.connected) return;
+    const frogs = [...this.frogs.values()];
+    const rows: FrogRow[] = frogs.map(frog => {
+      const moving = this.targets.get(frog.id)?.moving ? 1 : 0;
+      let flags = 0;
+      if (frog.isCaptured(now)) flags |= FLAG.captured;
+      if (frog.isHidden) flags |= FLAG.hidden;
+      if (now < frog.frozenUntil) flags |= FLAG.frozen;
+      if (frog.sick) flags |= FLAG.sick;
+      for (const kind of ['speed', 'tongue', 'double', 'shield'] as BoostKind[]) if (frog.boosted(kind, now)) flags |= FLAG[kind];
+      if (frog.isBot) flags |= FLAG.bot;
+      if (!frog.online) flags |= FLAG.away;
+      if (now < frog.safeUntil) flags |= FLAG.safe;
+      return [frog.id, Math.round(frog.x), Math.round(frog.y), FACINGS.indexOf(frog.facing) * 2 + moving, flags, frog.seq, frog.score];
+    });
+    const shot: WorldSnapshot = { n: ++this.shots, f: rows, b: [], ...(this.play?.snapshot() ?? {}) };
+    if (this.play && this.round) shot.t = Math.max(0, Math.ceil(this.round.seconds - this.play.elapsed));
+    if (this.rosterChanged || this.shots % 20 === 0) {
+      this.rosterChanged = false;
+      shot.r = frogs.map(frog => [frog.id, frog.name, formatLook(frog.look)]);
+    }
+    classHost.broadcast(shot);
   }
 
   /** Presenter keys: Enter / Space = next, Esc = menu. */
@@ -350,8 +422,9 @@ export class PondScene extends Phaser.Scene {
     if (!round) { this.finish(); return; }
     this.phase = 'roundIntro';
     for (const frog of this.frogs.values()) {
-      frog.roundScore = 0; frog.frozenUntil = 0; frog.safeUntil = 0; frog.sick = false; frog.boosts.clear();
-      const spot = openSpot(); frog.teleport(spot.x, spot.y); frog.drop(this.time.now);
+      frog.roundScore = 0; frog.frozenUntil = 0; frog.safeUntil = 0; frog.sick = false; frog.boosts.clear(); frog.hide(false); frog.release();
+      const spot = randomSpot([...this.frogs.values()].map(item => ({ x: item.x, y: item.y, r: 90 })));
+      this.place(frog, spot.x, spot.y);
     }
     this.setDarkness(round.darkness);
     sound.music(null);
@@ -436,7 +509,7 @@ export class PondScene extends Phaser.Scene {
       const correct = answer?.choice === question.correct;
       const points = answer ? quizPoints(correct, GAME.quizSeconds - (answer.at - quiz.startedAt) / 1000, GAME.quizSeconds) : 0;
       if (points) { frog.score += points; frog.roundScore += points; }
-      if (frog.control === 'phone') { classHost.sendTo(frog.id, { kind: 'result', q: question.id, correct, points }); this.dirty.add(frog.id); }
+      if (frog.control === 'phone') classHost.sendTo(frog.id, { kind: 'result', q: question.id, correct, points });
     }
     sound.play('correct');
     this.publish({ mode: 'reveal', q: question.id, correct: question.correct, answer: question.answers[question.correct], fact: question.fact });
@@ -473,7 +546,6 @@ export class PondScene extends Phaser.Scene {
     const top = ranking(frogs.map(frog => ({ id: frog.id, name: frog.name, score: frog.roundScore, bot: frog.isBot }))).slice(0, 5);
     const overall = ranking(frogs.map(frog => ({ id: frog.id, name: frog.name, score: frog.score, bot: frog.isBot })))[0];
     this.publish({ mode: 'results', title: `Round ${round.number} done!` });
-    for (const frog of frogs) if (frog.control === 'phone') classHost.sendTo(frog.id, { kind: 'score', score: frog.score });
     const color = (id: string) => this.frogs.get(id)?.color ?? '#ffffff';
     this.modal(`<div class="results-card" role="dialog" aria-label="Round results">
       <span class="rc-number">ROUND ${round.number} OF ${ROUNDS.length} · ${esc(round.title.toUpperCase())}</span>
@@ -504,8 +576,8 @@ export class PondScene extends Phaser.Scene {
       if (this.frogs.get(entry.id)?.control === 'phone') classHost.sendTo(entry.id, { kind: 'final', rank: entry.rank, of: ranks.length, score: entry.score });
     }
     this.publish({ mode: 'final' });
-    const colors = Object.fromEntries([...this.frogs.values()].map(frog => [frog.id, frog.color]));
-    go(this, 'FinaleScene', { result: { ranks, seen: this.seen }, colors }, 600);
+    const looks = Object.fromEntries([...this.frogs.values()].map(frog => [frog.id, frog.look]));
+    go(this, 'FinaleScene', { result: { ranks, seen: this.seen }, looks }, 600);
   }
 
   private publish(state: PhoneState): void { classHost.publish(state); }
@@ -555,7 +627,7 @@ export class PondScene extends Phaser.Scene {
     this.play?.end(); this.play = undefined; this.deck?.close(); this.autoNext?.remove();
     this.modal(''); this.setNext('');
     for (const frog of [...this.frogs.values()]) {
-      if (frog.isBot) { frog.destroy(); this.frogs.delete(frog.id); continue; }
+      if (frog.isBot) { frog.destroy(); this.frogs.delete(frog.id); this.targets.delete(frog.id); this.rosterChanged = true; continue; }
       frog.score = 0; frog.roundScore = 0;
     }
     this.phase = 'lobby'; this.roundIndex = -1; this.quiz = undefined; this.seen = []; this.scaredProjector = false;

@@ -36,6 +36,8 @@ export interface TerrainSpec {
   sea?: { edge: 'bottom' | 'right'; at: number };
   ash?: [number, number];
   cleared?: [number, number, number, number][];
+  /** Replaces the grass colour of a pixel (for example, the forest floor), or returns null to keep it. */
+  floor?: (x: number, y: number, n: number) => [number, number, number] | null;
 }
 
 function distanceToSegment(x: number, y: number, a: Point, b: Point): number {
@@ -67,7 +69,7 @@ export function paintTerrain(spec: TerrainSpec): HTMLCanvasElement {
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const n = hash(x, y);
-      let color = p.grass[n % p.grass.length];
+      let color = spec.floor?.(x, y, n) ?? p.grass[n % p.grass.length];
       let road = Infinity;
       for (const path of spec.paths) road = Math.min(road, distanceToPolyline(x, y, path));
       const clear = spec.clearings?.some(([cx, cy, rx, ry]) => ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 < 1);
