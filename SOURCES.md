@@ -29,10 +29,10 @@ Facts were checked on 2 October 2026. Every Field Journal card lists the sources
 
 ## What is a game choice, not a fact
 
-- **"FROGS ALIVE"** is a game simulation, labelled on screen. Real numbers appear only on cards.
-- Gameplay is illustrative: flashlight hunters, the tongue, glowing chytrid pools, the charging pig, lava cracks, wind gusts and the frogs following you in a line are ways to *experience* each threat or action. The cards say what is actually known. The jump-scare caption only states the sourced fact ("Hunting took thousands of mountain chickens every year").
+- **Points and team scores** are only for the game. Real numbers appear only on the Field Journal cards and in the facts that pop up during rounds.
+- The rounds are a way to *experience* each topic, not a simulation: eating bugs (niche), hunters' flashlights, chytrid pools and the dark (threats), and frogs carrying lost frogs to warm pools (rescue). Adult frogs don't really carry other frogs. The cards say what is actually known. The jump-scare caption only states the sourced fact ("Hunting took thousands of mountain chickens every year").
 - Exactly how chytrid reached Dominica isn't known. The six-degrees card says only what the 2018 study supports: chytrid spread worldwide with the global amphibian trade. The bonus chain says "storms like Hurricane Maria" rather than claiming climate change caused that one storm.
-- The researchers, enclosure layout and map are illustrations, not a depiction of a specific facility. The island map is approximate.
+- The pond, pools and map are illustrations, not a depiction of a specific place or facility. The island map is approximate.
 
 ## Art, sound and fonts
 

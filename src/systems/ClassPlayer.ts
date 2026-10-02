@@ -1,34 +1,30 @@
-import type { MovementInput } from './input';
-import { socketUrl, type PhoneState } from './ClassHost';
+import { socketUrl, type PhoneState, type PrivateMessage } from './ClassHost';
+import type { Team } from './match';
 
-export interface PrivateMessage { kind: 'summary' | 'locked' | 'result' | 'bug' | 'final'; round?: number; answered?: boolean; correct?: boolean; gain?: number; streak?: number; score?: number; rank?: number; of?: number }
-type Listener = () => void;
+type Listener = (message?: PrivateMessage) => void;
 const STORE = 'mountain-chicken-player';
 
-/** A classmate's phone: joins with PIN + nickname, then answers, reacts and (if chosen) pilots the frog. */
+/** A classmate's phone: joins with the code and nickname, then steers its own frog. */
 class ClassPlayer {
   id = '';
   name = '';
   code = '';
   connected = false;
-  pilot = false;
   error = '';
   ended = false;
   state: PhoneState = { mode: 'lobby' };
-  last?: PrivateMessage;
+  team: Team | null = null;
   score = 0;
-  rank = 0;
-  of = 0;
-  answeredRound = -1;
+  final?: Extract<PrivateMessage, { kind: 'final' }>;
   private token = '';
   private socket?: WebSocket;
   private listeners = new Set<Listener>();
   private retry?: number;
 
   subscribe(listener: Listener): () => void { this.listeners.add(listener); return () => this.listeners.delete(listener); }
-  private emit(): void { this.listeners.forEach(listener => listener()); }
+  private emit(message?: PrivateMessage): void { this.listeners.forEach(listener => listener(message)); }
 
-  /** A saved seat from this tab, so a locked phone can rejoin and keep its score. */
+  /** A saved seat from this tab, so a locked phone can rejoin and keep its frog. */
   saved(): { code: string; token: string; name: string } | null {
     try { const value = JSON.parse(sessionStorage.getItem(STORE) || 'null'); return value?.code && value?.token ? value : null; } catch { return null; }
   }
@@ -60,27 +56,26 @@ class ClassPlayer {
         try { message = JSON.parse(event.data); } catch { return; }
         if (message.type === 'joined') {
           this.id = message.id; this.name = message.name; this.code = message.code; this.token = message.token;
-          this.pilot = !!message.pilot; this.state = message.state; this.connected = true; this.error = '';
+          this.state = message.state; this.connected = true; this.error = '';
           try { sessionStorage.setItem(STORE, JSON.stringify({ code: this.code, token: this.token, name: this.name })); } catch { /* optional */ }
           if (!settled) { settled = true; clearTimeout(timeout); resolve(); }
+          this.emit();
         } else if (message.type === 'error') {
           if (!this.connected) { fail(message.message); socket.close(); }
         } else if (message.type === 'state') {
-          this.state = message.state;
+          this.state = message.state; this.emit();
         } else if (message.type === 'private') {
           const data = message.data as PrivateMessage;
-          this.last = data;
-          if (typeof data.score === 'number') this.score = data.score;
-          if (typeof data.rank === 'number') this.rank = data.rank;
-          if (typeof data.of === 'number') this.of = data.of;
-        } else if (message.type === 'pilot') {
-          this.pilot = !!message.active;
+          if (data.kind === 'you') this.team = data.team;
+          if (data.kind === 'score') this.score = data.score;
+          if (data.kind === 'final') { this.final = data; this.score = data.score; this.team = data.team; }
+          this.emit(data);
         } else if (message.type === 'kicked' || message.type === 'ended') {
           this.ended = true;
           this.error = message.type === 'kicked' ? 'The host removed you from this game.' : message.reason === 'replaced' ? 'You joined from another tab.' : 'The game has ended. Thanks for playing!';
           try { sessionStorage.removeItem(STORE); } catch { /* optional */ }
+          this.emit();
         }
-        this.emit();
       });
     });
   }
@@ -93,15 +88,13 @@ class ClassPlayer {
   }
 
   private send(value: unknown): void { if (this.socket?.readyState === WebSocket.OPEN) this.socket.send(JSON.stringify(value)); }
-  answer(round: number, choice: number): void { this.answeredRound = round; this.send({ type: 'answer', round, choice }); this.emit(); }
+  steer(x: number, y: number): void { this.send({ type: 'input', input: { x, y } }); }
   react(emoji: string): void { this.send({ type: 'react', emoji }); }
-  bug(): void { this.send({ type: 'bug' }); }
-  sendInput(input: MovementInput): void { this.send({ type: 'input', input }); }
 
   close(forget = true): void {
     clearTimeout(this.retry);
     const socket = this.socket; this.socket = undefined; socket?.close();
-    this.connected = false; this.pilot = false;
+    this.connected = false;
     if (forget) try { sessionStorage.removeItem(STORE); } catch { /* optional */ }
   }
 }

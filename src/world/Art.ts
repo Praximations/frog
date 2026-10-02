@@ -11,23 +11,10 @@ export function ensureArt(scene: Phaser.Scene): void {
     canvas.context.imageSmoothingEnabled = false;
     draw(canvas.context); canvas.refresh();
   }
-  if (!scene.textures.exists('darkness')) scene.textures.addCanvas('darkness', darknessCanvas());
   if (!scene.textures.exists('beam')) scene.textures.addCanvas('beam', beamCanvas());
   if (!scene.textures.exists('glow')) scene.textures.addCanvas('glow', glowCanvas());
 }
 
-/** Night vignette: clear around the frog, dark beyond. Drawn small and scaled up for chunky pixels. */
-function darknessCanvas(): HTMLCanvasElement {
-  const canvas = document.createElement('canvas'); canvas.width = 400; canvas.height = 240;
-  const ctx = canvas.getContext('2d')!;
-  for (let y = 0; y < 240; y++) for (let x = 0; x < 400; x++) {
-    const d = Math.hypot(x - 200, (y - 120) * 1.1);
-    const a = Math.max(0, Math.min(1, (d - 38) / 70));
-    const stepped = Math.round(a * 6) / 6;
-    if (stepped > 0) { ctx.fillStyle = `rgba(4,10,16,${(stepped * 0.74).toFixed(3)})`; ctx.fillRect(x, y, 1, 1); }
-  }
-  return canvas;
-}
 function beamCanvas(): HTMLCanvasElement {
   const canvas = document.createElement('canvas'); canvas.width = 64; canvas.height = 32;
   const ctx = canvas.getContext('2d')!;

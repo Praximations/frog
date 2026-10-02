@@ -2,8 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { JOURNAL, RUBRIC_KEYS, SIX_DEGREES } from '../src/data/journal.ts';
 import { SOURCES } from '../src/data/sources.ts';
-import { CHAPTERS, buildSteps } from '../src/data/chapters.ts';
-import { QUESTIONS } from '../src/data/quiz.ts';
+import { STEPS, ROUNDS } from '../src/data/rounds.ts';
 
 test('every rubric bullet has exactly one complete, sourced Field Journal card', () => {
   assert.equal(RUBRIC_KEYS.length, 10, 'the assignment has 10 information bullets');
@@ -20,10 +19,11 @@ test('every rubric bullet has exactly one complete, sourced Field Journal card',
   assert.deepEqual(JOURNAL.map(card => card.number), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 });
 
-test('each card is presented by the chapter that claims it', () => {
-  const claimed = CHAPTERS.flatMap(chapter => chapter.journal);
-  assert.deepEqual([...claimed].sort(), [...RUBRIC_KEYS].sort(), 'chapters present every card once');
-  for (const card of JOURNAL) assert.ok(CHAPTERS.find(chapter => chapter.number === card.chapter).journal.includes(card.key));
+test('the learning breaks show every card exactly once, between the rounds', () => {
+  const shown = STEPS.flatMap(step => step.kind === 'learn' ? step.cards : []);
+  assert.deepEqual([...shown].sort(), [...RUBRIC_KEYS].sort());
+  assert.equal(new Set(shown).size, shown.length);
+  assert.deepEqual(STEPS.map(step => step.kind), ['learn', 'round', 'learn', 'round', 'learn', 'round', 'learn', 'final']);
 });
 
 test('name card states both the common and scientific name; status names the category', () => {
@@ -41,14 +41,13 @@ test('six degrees runs from YOU to the frog through five connections', () => {
   assert.equal(SIX_DEGREES.at(-1).step, 'FROG');
 });
 
-test('one quiz per chapter with valid, varied answers', () => {
-  assert.deepEqual(QUESTIONS.map(item => item.chapter), [1, 2, 3, 4, 5]);
-  for (const item of QUESTIONS) {
-    assert.equal(item.options.length, 4);
-    assert.ok(item.correct >= 0 && item.correct <= 3);
-    assert.ok(item.seconds >= 10);
+test('three short rounds fit a 10-minute presentation', () => {
+  const rounds = STEPS.filter(step => step.kind === 'round').map(step => ROUNDS[step.round]);
+  assert.deepEqual(rounds.map(round => round.number), [1, 2, 3]);
+  const seconds = rounds.reduce((sum, round) => sum + round.seconds, 0);
+  assert.ok(seconds >= 150 && seconds <= 240, `rounds take ${seconds}s`);
+  for (const round of rounds) {
+    assert.ok(round.goal && round.tip && round.title);
+    for (const fact of round.facts) assert.ok(fact.at > 0 && fact.at < round.seconds);
   }
-  assert.ok(new Set(QUESTIONS.map(item => item.correct)).size >= 3, 'the right answer is not always in the same spot');
-  assert.equal(buildSteps(true).length, 11);
-  assert.deepEqual(buildSteps(false).map(step => step.kind), ['chapter', 'chapter', 'chapter', 'chapter', 'chapter', 'finale']);
 });

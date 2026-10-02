@@ -3,13 +3,13 @@ import { networkInterfaces } from 'node:os';
 import { WebSocketServer, WebSocket } from 'ws';
 
 /**
- * Kahoot-style class relay. One host browser (the projector) owns all game state and scoring;
- * phones join with a PIN and nickname. The relay only validates, rate-limits and forwards.
+ * Class relay. One host browser (the projector) owns all game state and scoring; phones join with
+ * a code and nickname and act as joysticks for their own frog. The relay validates, rate-limits
+ * and forwards.
  */
 export const LIMITS = { rooms: 30, playersPerRoom: 60, clients: 600, nameLength: 16, stateBytes: 3000, privateBytes: 1000 };
 export const REACTIONS = ['🐸', '❤️', '😱', '👏', '🔥', '🦗'];
-export const MODES = ['lobby', 'chapter', 'card', 'quiz', 'reveal', 'overview', 'podium', 'paused'];
-const STOPPED = { x: 0, y: 0, hop: false, interact: false, pause: false };
+export const MODES = ['lobby', 'learn', 'intro', 'round', 'results', 'final', 'paused'];
 
 const send = (socket, value) => { if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(value)); };
 const jsonSize = value => { try { return JSON.stringify(value).length; } catch { return Infinity; } };
@@ -61,11 +61,9 @@ export function attachRelay(http, { path = '/session' } = {}) {
   };
   http.on('upgrade', onUpgrade);
 
-  const leavePilot = room => { if (room.pilot) send(room.host, { type: 'input', input: STOPPED }); };
-
   wss.on('connection', socket => {
     socket.alive = true;
-    let windowStart = Date.now(), messages = 0, joins = 0, lastReact = 0, lastBug = 0;
+    let windowStart = Date.now(), messages = 0, joins = 0, lastReact = 0;
     socket.on('error', () => {});
     socket.on('pong', () => { socket.alive = true; });
     socket.on('message', data => {
@@ -80,7 +78,7 @@ export function attachRelay(http, { path = '/session' } = {}) {
         if (rooms.size >= LIMITS.rooms) { send(socket, { type: 'error', message: 'The server is full. Try again shortly.' }); return; }
         let code;
         do { code = String(randomInt(100000, 1000000)); } while (rooms.has(code));
-        rooms.set(code, { code, host: socket, players: new Map(), pilot: null, state: { mode: 'lobby' } });
+        rooms.set(code, { code, host: socket, players: new Map(), state: { mode: 'lobby' } });
         socket.role = 'host'; socket.code = code;
         send(socket, { type: 'hosted', code });
         return;
@@ -90,7 +88,7 @@ export function attachRelay(http, { path = '/session' } = {}) {
         if (++joins > 10) { socket.close(1008, 'Too many join attempts'); return; }
         const code = String(message.code ?? '');
         const target = /^\d{6}$/.test(code) ? rooms.get(code) : undefined;
-        if (!target) { send(socket, { type: 'error', message: 'That PIN is not active. Check the big screen.' }); return; }
+        if (!target) { send(socket, { type: 'error', message: 'That code is not active. Check the big screen.' }); return; }
         let player = typeof message.token === 'string' ? [...target.players.values()].find(item => item.token === message.token) : undefined;
         if (player) {
           if (player.socket && player.socket !== socket) { send(player.socket, { type: 'ended', reason: 'replaced' }); player.socket.code = undefined; player.socket.close(); }
@@ -103,7 +101,7 @@ export function attachRelay(http, { path = '/session' } = {}) {
         }
         player.socket = socket;
         socket.role = 'player'; socket.code = code; socket.playerId = player.id;
-        send(socket, { type: 'joined', code, id: player.id, name: player.name, token: player.token, state: target.state, pilot: target.pilot === player.id });
+        send(socket, { type: 'joined', code, id: player.id, name: player.name, token: player.token, state: target.state });
         send(target.host, { type: 'player', event: 'join', id: player.id, name: player.name });
         return;
       }
@@ -123,17 +121,8 @@ export function attachRelay(http, { path = '/session' } = {}) {
           const player = room.players.get(String(message.id));
           if (!player) return;
           room.players.delete(player.id);
-          if (room.pilot === player.id) { leavePilot(room); room.pilot = null; }
           if (player.socket) { send(player.socket, { type: 'kicked' }); player.socket.code = undefined; player.socket.close(); }
           send(room.host, { type: 'player', event: 'removed', id: player.id });
-        } else if (message.type === 'pilot') {
-          const id = message.id === null ? null : String(message.id);
-          if (id !== null && !room.players.has(id)) return;
-          const previous = room.pilot;
-          if (previous === id) return;
-          if (previous) { leavePilot(room); send(room.players.get(previous)?.socket, { type: 'pilot', active: false }); }
-          room.pilot = id;
-          if (id) send(room.players.get(id).socket, { type: 'pilot', active: true });
         }
         return;
       }
@@ -141,21 +130,15 @@ export function attachRelay(http, { path = '/session' } = {}) {
       if (socket.role !== 'player') return;
       const id = socket.playerId;
       if (room.players.get(id)?.socket !== socket) return;
-      if (message.type === 'answer') {
-        if (!Number.isInteger(message.round) || !Number.isInteger(message.choice) || message.choice < 0 || message.choice > 3) return;
-        send(room.host, { type: 'answer', id, round: message.round, choice: message.choice });
+      if (message.type === 'input') {
+        // Joystick direction for this player's own frog.
+        const input = message.input;
+        if (!isPlainObject(input) || !Number.isFinite(input.x) || !Number.isFinite(input.y) || Math.abs(input.x) > 1 || Math.abs(input.y) > 1) return;
+        send(room.host, { type: 'input', id, input: { x: Math.round(input.x * 100) / 100, y: Math.round(input.y * 100) / 100 } });
       } else if (message.type === 'react') {
         if (!REACTIONS.includes(message.emoji) || Date.now() - lastReact < 250) return;
         lastReact = Date.now();
         send(room.host, { type: 'react', id, emoji: message.emoji });
-      } else if (message.type === 'bug') {
-        if (Date.now() - lastBug < 900) return;
-        lastBug = Date.now();
-        send(room.host, { type: 'bug', id });
-      } else if (message.type === 'input' && room.pilot === id) {
-        const input = message.input;
-        if (!isPlainObject(input) || !Number.isFinite(input.x) || !Number.isFinite(input.y) || Math.abs(input.x) > 1 || Math.abs(input.y) > 1) return;
-        send(room.host, { type: 'input', input: { x: input.x, y: input.y, hop: input.hop === true, interact: input.interact === true, pause: input.pause === true } });
       }
     });
 
@@ -168,8 +151,7 @@ export function attachRelay(http, { path = '/session' } = {}) {
       } else if (socket.role === 'player') {
         const player = room.players.get(socket.playerId);
         if (player?.socket !== socket) return;
-        player.socket = null; // Kept so the phone can rejoin with its token and keep its score.
-        if (room.pilot === player.id) leavePilot(room);
+        player.socket = null; // Kept so the phone can rejoin with its token and keep its frog and score.
         send(room.host, { type: 'player', event: 'leave', id: player.id });
       }
     });

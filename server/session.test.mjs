@@ -46,7 +46,7 @@ async function connect(url, count) {
   return peers;
 }
 
-test('a class joins with a PIN and nicknames; answers, reactions and bugs reach the host', async t => {
+test('a class joins with a code and nicknames; joysticks and reactions reach the host', async t => {
   const { server, url } = await start(t);
   const [host, ana, ben, twin] = await connect(url, 4);
   host.send({ type: 'host' });
@@ -70,60 +70,53 @@ test('a class joins with a PIN and nicknames; answers, reactions and bugs reach 
   assert.equal((await twin.next('joined')).name, 'BEN 2', 'duplicate nicknames get a number');
   await host.next('player');
 
-  host.send({ type: 'state', state: { mode: 'quiz', round: 1, options: ['a', 'b', 'c', 'd'] } });
-  assert.equal((await ana.next('state')).state.round, 1);
-  assert.equal((await ben.next('state')).state.mode, 'quiz');
-  // Players cannot overwrite the host's state.
-  ana.send({ type: 'state', state: { mode: 'podium' } });
-  assert.equal(server.rooms.get(code).state.mode, 'quiz');
+  host.send({ type: 'state', state: { mode: 'round', round: 'feast', title: 'Feeding frenzy' } });
+  assert.equal((await ana.next('state')).state.round, 'feast');
+  assert.equal((await ben.next('state')).state.mode, 'round');
+  // Players cannot overwrite the host's state, and unknown modes are refused.
+  ana.send({ type: 'state', state: { mode: 'final' } });
+  host.send({ type: 'state', state: { mode: 'quiz' } });
+  await new Promise(resolve => setTimeout(resolve, 100));
+  assert.equal(server.rooms.get(code).state.mode, 'round');
 
-  ana.send({ type: 'answer', round: 1, choice: 2 });
-  assert.deepEqual(await host.next('answer'), { type: 'answer', id: joined.id, round: 1, choice: 2 });
-  ana.send({ type: 'answer', round: 1, choice: 9 });
-  assert.ok(await host.quiet('answer'), 'out-of-range choices are dropped');
+  // Every player steers their own frog.
+  ana.send({ type: 'input', input: { x: 0.70711, y: -0.70711 } });
+  assert.deepEqual(await host.next('input'), { type: 'input', id: joined.id, input: { x: 0.71, y: -0.71 } });
+  ben.send({ type: 'input', input: { x: -1, y: 0 } });
+  assert.deepEqual(await host.next('input'), { type: 'input', id: benJoined.id, input: { x: -1, y: 0 } });
+  ben.send({ type: 'input', input: { x: 3, y: 0 } });
+  ben.send({ type: 'input', input: 'left' });
+  assert.ok(await host.quiet('input'), 'out-of-range or malformed input is dropped');
 
   ben.send({ type: 'react', emoji: '🐸' });
   assert.deepEqual(await host.next('react'), { type: 'react', id: benJoined.id, emoji: '🐸' });
   ben.send({ type: 'react', emoji: '<script>' });
-  ben.send({ type: 'bug' });
-  assert.deepEqual(await host.next('bug'), { type: 'bug', id: benJoined.id });
-  assert.ok(await host.quiet('react'), 'unknown reactions and rapid repeats are dropped');
+  assert.ok(await host.quiet('react'), 'unknown reactions are dropped');
 
-  host.send({ type: 'to', id: joined.id, data: { correct: true, points: 950 } });
-  assert.deepEqual((await ana.next('private')).data, { correct: true, points: 950 });
-  assert.ok(await ben.quiet('private'), 'private results only reach their player');
+  host.send({ type: 'to', id: joined.id, data: { kind: 'caught' } });
+  assert.deepEqual((await ana.next('private')).data, { kind: 'caught' });
+  assert.ok(await ben.quiet('private'), 'private messages only reach their player');
 });
 
-test('pilot input, rejoin with token, kick, and host shutdown', async t => {
+test('rejoin with token keeps the same frog; kick and host shutdown', async t => {
   const { server, url } = await start(t);
-  const [host, pilot, other] = await connect(url, 3);
+  const [host, ana, other] = await connect(url, 3);
   host.send({ type: 'host' });
   const { code } = await host.next('hosted');
-  pilot.send({ type: 'join', code, name: 'Pilot' });
-  const pilotJoin = await pilot.next('joined');
+  ana.send({ type: 'join', code, name: 'Ana' });
+  const anaJoin = await ana.next('joined');
   other.send({ type: 'join', code, name: 'Other' });
   const otherJoin = await other.next('joined');
   await host.next('player'); await host.next('player');
 
-  pilot.send({ type: 'input', input: { x: 1, y: 0, hop: true, interact: false } });
-  assert.ok(await host.quiet('input'), 'non-pilots cannot drive the frog');
-  host.send({ type: 'pilot', id: pilotJoin.id });
-  assert.equal((await pilot.next('pilot')).active, true);
-  pilot.send({ type: 'input', input: { x: 1, y: -1, hop: true, interact: false, pause: false } });
-  assert.deepEqual((await host.next('input')).input, { x: 1, y: -1, hop: true, interact: false, pause: false });
-  other.send({ type: 'input', input: { x: -1, y: 0 } });
-  assert.ok(await host.quiet('input'));
-
-  // A dropped phone keeps its identity and pilot seat when it rejoins with its token.
-  pilot.socket.close(); await once(pilot.socket, 'close');
-  assert.deepEqual((await host.next('input')).input, { x: 0, y: 0, hop: false, interact: false, pause: false });
+  // A locked phone drops and rejoins with its token: same id, so the host keeps its frog and score.
+  ana.socket.close(); await once(ana.socket, 'close');
   assert.equal((await host.next('player')).event, 'leave');
   const [back] = await connect(url, 1);
-  back.send({ type: 'join', code, token: pilotJoin.token });
+  back.send({ type: 'join', code, token: anaJoin.token });
   const rejoined = await back.next('joined');
-  assert.equal(rejoined.id, pilotJoin.id);
-  assert.equal(rejoined.pilot, true);
-  assert.equal((await host.next('player')).id, pilotJoin.id);
+  assert.equal(rejoined.id, anaJoin.id);
+  assert.equal((await host.next('player')).id, anaJoin.id);
 
   host.send({ type: 'kick', id: otherJoin.id });
   assert.equal((await other.next('kicked')).type, 'kicked');

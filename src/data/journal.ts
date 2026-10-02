@@ -10,7 +10,6 @@ export interface JournalCard {
   key: RubricKey;
   number: number;
   rubric: string;
-  chapter: number;
   kicker: string;
   title: string;
   lead: string;
@@ -51,7 +50,7 @@ export const BONUS_CHAIN = [
 
 export const JOURNAL: JournalCard[] = [
   {
-    key: 'name', number: 1, rubric: 'Name (common and scientific)', chapter: 1,
+    key: 'name', number: 1, rubric: 'Name (common and scientific)',
     kicker: 'Field Journal · Who am I?', title: 'Mountain chicken',
     lead: 'Not a chicken at all — one of the biggest frogs on Earth.',
     visual: 'nameplate',
@@ -64,7 +63,7 @@ export const JOURNAL: JournalCard[] = [
     sources: ['wikipedia', 'biographic', 'darwin-factsheet'],
   },
   {
-    key: 'status', number: 2, rubric: 'Status (threatened / endangered / critically endangered)', chapter: 1,
+    key: 'status', number: 2, rubric: 'Status (threatened / endangered / critically endangered)',
     kicker: 'Field Journal · How much trouble?', title: 'Critically Endangered',
     lead: 'The highest risk level before "Extinct in the Wild" on the IUCN Red List.',
     visual: 'redlist',
@@ -76,7 +75,7 @@ export const JOURNAL: JournalCard[] = [
     sources: ['wikipedia', 'amphibiaweb', 'survey-2023'],
   },
   {
-    key: 'habitat', number: 3, rubric: 'Habitat (name and description)', chapter: 1,
+    key: 'habitat', number: 3, rubric: 'Habitat (name and description)',
     kicker: 'Field Journal · Where do I live?', title: 'Dominica & Montserrat',
     lead: 'Two small volcanic islands in the Eastern Caribbean (Lesser Antilles).',
     visual: 'map',
@@ -89,7 +88,7 @@ export const JOURNAL: JournalCard[] = [
     sources: ['wikipedia', 'amphibiaweb', 'dominica-climate', 'montserrat-2022', 'durrell-2025'],
   },
   {
-    key: 'physical', number: 4, rubric: 'Physical description', chapter: 1,
+    key: 'physical', number: 4, rubric: 'Physical description',
     kicker: 'Field Journal · What do I look like?', title: 'A giant brown frog',
     lead: 'The largest frog native to the Caribbean.',
     visual: 'anatomy',
@@ -102,7 +101,7 @@ export const JOURNAL: JournalCard[] = [
     sources: ['wikipedia', 'darwin-factsheet'],
   },
   {
-    key: 'picture', number: 5, rubric: 'Illustration / picture', chapter: 1,
+    key: 'picture', number: 5, rubric: 'Illustration / picture',
     kicker: 'Field Journal · Field-guide plate', title: 'Portrait of a mountain chicken',
     lead: 'An original pixel illustration based on descriptions from ZSL, Durrell and the Darwin Initiative fact sheet.',
     visual: 'plate',
@@ -115,7 +114,7 @@ export const JOURNAL: JournalCard[] = [
     sources: ['wikipedia', 'darwin-factsheet', 'durrell'],
   },
   {
-    key: 'niche', number: 6, rubric: 'Niche (producer, primary consumer, etc.)', chapter: 2,
+    key: 'niche', number: 6, rubric: 'Niche (producer, primary consumer, etc.)',
     kicker: 'Field Journal · My job in the ecosystem', title: 'Carnivore & top predator',
     lead: 'A secondary consumer when it eats plant-eating insects — a tertiary consumer when it eats other predators.',
     visual: 'foodweb',
@@ -128,7 +127,7 @@ export const JOURNAL: JournalCard[] = [
     sources: ['diet-2019', 'wikipedia', 'zjb-2018', 'darwin-factsheet', 'mcrp-feeding'],
   },
   {
-    key: 'threats', number: 7, rubric: 'Major reasons why the species is listed', chapter: 3,
+    key: 'threats', number: 7, rubric: 'Major reasons why the species is listed',
     kicker: 'Field Journal · Why am I disappearing?', title: 'Six threats',
     lead: 'One of the fastest collapses of any species ever recorded.',
     visual: 'threats',
@@ -143,7 +142,7 @@ export const JOURNAL: JournalCard[] = [
     sources: ['durrell-chytrid', 'biographic', 'reptiles', 'amphibiaweb', 'darwin-factsheet', 'maria-2023'],
   },
   {
-    key: 'importance', number: 8, rubric: 'Importance of the species', chapter: 4,
+    key: 'importance', number: 8, rubric: 'Importance of the species',
     kicker: 'Field Journal · Why save me?', title: 'Why it matters',
     lead: 'Losing a top predator ripples through a whole island.',
     visual: 'importance',
@@ -156,7 +155,7 @@ export const JOURNAL: JournalCard[] = [
     sources: ['zjb-2018', 'fallaxin', 'dominica-arms', 'biographic', 'mongabay-2023'],
   },
   {
-    key: 'support', number: 9, rubric: 'Support being given to the species', chapter: 4,
+    key: 'support', number: 9, rubric: 'Support being given to the species',
     kicker: 'Field Journal · Who is helping?', title: 'The rescue mission',
     lead: 'The Mountain Chicken Recovery Programme: Durrell, ZSL, Chester Zoo, Nordens Ark, Paignton Zoo and the governments of Montserrat and Dominica.',
     visual: 'timeline',
@@ -170,7 +169,7 @@ export const JOURNAL: JournalCard[] = [
     sources: ['durrell', 'biographic', 'mongabay-2009', 'durrell-2019', 'survey-2023', 'mongabay-2023', 'durrell-2025'],
   },
   {
-    key: 'sixDegrees', number: 10, rubric: 'Six degrees of separation', chapter: 5,
+    key: 'sixDegrees', number: 10, rubric: 'Six degrees of separation',
     kicker: 'Field Journal · How am I connected to you?', title: 'Everything is connected',
     lead: 'From a pet-shop frog to a giant frog in the Caribbean — in six steps.',
     visual: 'chain',
@@ -182,4 +181,3 @@ export const JOURNAL: JournalCard[] = [
 
 export const RUBRIC_KEYS: RubricKey[] = ['name', 'status', 'habitat', 'physical', 'picture', 'niche', 'threats', 'importance', 'support', 'sixDegrees'];
 export const cardByKey = (key: RubricKey): JournalCard => JOURNAL.find(card => card.key === key)!;
-export const cardsForChapter = (chapter: number): JournalCard[] => JOURNAL.filter(card => card.chapter === chapter);

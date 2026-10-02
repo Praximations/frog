@@ -53,14 +53,15 @@ export class AmbientFrogs {
   }
 }
 
-export type PreyKind = 'cricket' | 'beetle' | 'millipede' | 'snail' | 'crab' | 'snake';
-export const PREY: Record<PreyKind, { food: number; speed: number; label: string }> = {
-  cricket: { food: 9, speed: 70, label: 'Cricket' },
-  beetle: { food: 8, speed: 45, label: 'Beetle' },
-  millipede: { food: 10, speed: 28, label: 'Millipede' },
-  snail: { food: 8, speed: 12, label: 'Snail' },
-  crab: { food: 16, speed: 55, label: 'Land crab' },
-  snake: { food: 22, speed: 60, label: 'Small snake' },
+export type PreyKind = 'cricket' | 'beetle' | 'millipede' | 'snail' | 'crab' | 'snake' | 'golden';
+export const PREY: Record<PreyKind, { points: number; speed: number; label: string; texture: string }> = {
+  cricket: { points: 1, speed: 70, label: 'Cricket', texture: 'cricket' },
+  beetle: { points: 1, speed: 45, label: 'Beetle', texture: 'beetle' },
+  millipede: { points: 1, speed: 28, label: 'Millipede', texture: 'millipede' },
+  snail: { points: 1, speed: 12, label: 'Snail', texture: 'snail' },
+  crab: { points: 3, speed: 55, label: 'Land crab', texture: 'crab' },
+  snake: { points: 3, speed: 60, label: 'Small snake', texture: 'snake' },
+  golden: { points: 5, speed: 105, label: 'Golden cricket', texture: 'cricket' },
 };
 
 /** Something the frog can catch. Moves in short hops/wiggles inside an area. */
@@ -73,7 +74,8 @@ export class Prey {
   private hop = 0;
 
   constructor(private readonly scene: Phaser.Scene, readonly kind: PreyKind, x: number, y: number, private readonly area: Phaser.Geom.Rectangle, readonly owner?: { id: string; name: string }) {
-    this.sprite = scene.add.image(x, y, kind).setScale(SCALE).setDepth(y);
+    this.sprite = scene.add.image(x, y, PREY[kind].texture).setScale(SCALE).setDepth(y);
+    if (kind === 'golden') this.sprite.setTint(0xffd84a);
     if (owner) this.tag = scene.add.text(x, y - 40, owner.name, { fontFamily: 'Pixelify', fontSize: '18px', color: '#fff7d0', stroke: '#2e2a20', strokeThickness: 4 }).setOrigin(.5).setDepth(4800);
   }
 
@@ -88,14 +90,15 @@ export class Prey {
       if (d < 150 && this.kind !== 'snail') { this.heading = Math.atan2(this.sprite.y - fleeFrom.y, this.sprite.x - fleeFrom.x) + (Math.random() - .5) * .6; speed *= 1.6; }
     }
     this.hop += delta;
-    const moving = this.kind === 'cricket' ? this.hop % 1100 < 380 : true;
+    const hopper = this.kind === 'cricket' || this.kind === 'golden';
+    const moving = hopper ? this.hop % 1100 < 380 : true;
     if (moving) {
       let x = this.sprite.x + Math.cos(this.heading) * speed * delta / 1000;
       let y = this.sprite.y + Math.sin(this.heading) * speed * delta / 1000;
       if (!this.area.contains(x, y)) { this.heading += Math.PI; x = Phaser.Math.Clamp(x, this.area.left, this.area.right); y = Phaser.Math.Clamp(y, this.area.top, this.area.bottom); }
       this.sprite.setPosition(x, y).setDepth(y).setFlipX(Math.cos(this.heading) < 0);
     }
-    if (this.kind === 'cricket') this.sprite.setTexture(moving ? 'cricket-1' : 'cricket');
+    if (hopper) this.sprite.setTexture(moving ? 'cricket-1' : 'cricket');
     if (this.kind === 'snake') this.sprite.setTexture(Math.floor(this.hop / 160) % 2 ? 'snake-1' : 'snake');
     this.tag?.setPosition(this.sprite.x, this.sprite.y - 42);
   }

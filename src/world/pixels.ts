@@ -76,11 +76,6 @@ function drawFern(ctx: Context): void {
   rect(ctx, '#c1d58c', 9, 5, 1, 14);
 }
 
-function drawRock(ctx: Context): void {
-  oval(ctx, '#617c4e', 10, 12, 9, 2); oval(ctx, '#6b7769', 10, 8, 8, 5);
-  oval(ctx, '#a9ae96', 9, 6, 7, 4); rect(ctx, '#d5d7b5', 6, 3, 6, 1);
-  rect(ctx, '#858f78', 12, 7, 5, 4); rect(ctx, '#86a452', 3, 10, 6, 2);
-}
 
 function drawFlower(ctx: Context): void {
   rect(ctx, '#5a803d', 4, 5, 1, 7); rect(ctx, '#719648', 2, 9, 5, 2);
@@ -88,21 +83,7 @@ function drawFlower(ctx: Context): void {
   rect(ctx, '#eabb51', 4, 4, 2, 2);
 }
 
-function drawBoard(ctx: Context): void {
-  rect(ctx, '#65814b', 3, 28, 25, 3); rect(ctx, '#735238', 6, 14, 3, 15); rect(ctx, '#735238', 21, 14, 3, 15);
-  rect(ctx, '#654831', 2, 3, 27, 16); rect(ctx, '#c69963', 3, 4, 25, 13);
-  rect(ctx, '#ffe7b3', 5, 6, 21, 9); rect(ctx, '#8b5a3a', 7, 8, 6, 5); rect(ctx, '#c9874f', 8, 9, 4, 3);
-  rect(ctx, '#967746', 16, 8, 7, 1); rect(ctx, '#967746', 16, 11, 5, 1);
-  rect(ctx, '#f0c68d', 1, 2, 29, 2);
-}
 
-function drawLog(ctx: Context): void {
-  oval(ctx, '#5c7847', 24, 15, 21, 3); rect(ctx, '#705239', 4, 5, 36, 10);
-  rect(ctx, '#a77b4d', 5, 4, 34, 8); rect(ctx, '#d0a567', 7, 4, 30, 2);
-  rect(ctx, '#614c36', 12, 9, 19, 1); rect(ctx, '#614c36', 20, 6, 12, 1);
-  oval(ctx, '#d5b77d', 4, 10, 4, 6); oval(ctx, '#8c6c44', 4, 10, 2, 4);
-  rect(ctx, '#87a458', 18, 3, 11, 2);
-}
 
 function drawStump(ctx: Context): void {
   oval(ctx, '#4f4a3a', 10, 12, 10, 3);
@@ -171,12 +152,6 @@ function drawSporePool(ctx: Context): void {
   rect(ctx, '#5a8a5a', 6, 3, 4, 1); rect(ctx, '#6aa060', 20, 12, 5, 1);
 }
 
-function drawBurrow(ctx: Context): void {
-  oval(ctx, '#4a3a26', 15, 13, 15, 7); oval(ctx, '#6b5236', 15, 11, 13, 6); oval(ctx, '#8a6a44', 13, 9, 9, 3);
-  oval(ctx, '#150e09', 15, 13, 7, 4); oval(ctx, '#2a1c12', 15, 12, 6, 2);
-  rect(ctx, '#3f2c1c', 4, 9, 3, 1); rect(ctx, '#3f2c1c', 23, 10, 4, 1); rect(ctx, '#5a8a45', 2, 14, 4, 2); rect(ctx, '#5a8a45', 25, 15, 4, 2);
-  rect(ctx, '#7aa652', 3, 13, 2, 1); rect(ctx, '#c9e08a', 26, 14, 2, 1);
-}
 
 function drawVolcano(ctx: Context): void {
   for (let y = 6; y < 40; y++) {
@@ -190,11 +165,6 @@ function drawVolcano(ctx: Context): void {
   speckle(ctx, ['#8a8178', '#3a3430'], 6, 20, 48, 20, 12, 3);
 }
 
-function drawLava(ctx: Context): void {
-  rect(ctx, '#2c2622', 0, 3, 36, 6); rect(ctx, '#3d3530', 2, 2, 31, 1);
-  for (let x = 1; x < 35; x++) { const y = 5 + Math.round(Math.sin(x / 2.3) * 1.5); rect(ctx, '#ff7a2a', x, y, 1, 1); if (x % 3 === 0) rect(ctx, '#ffd36a', x, y, 1, 1); }
-  rect(ctx, '#ff7a2a', 8, 3, 1, 2); rect(ctx, '#ff7a2a', 22, 6, 1, 2);
-}
 
 function drawPool(ctx: Context): void {
   oval(ctx, '#7f7a6c', 26, 16, 26, 14); oval(ctx, '#c9c3b0', 26, 15, 25, 13); oval(ctx, '#9a958a', 26, 16, 22, 11);
@@ -211,29 +181,8 @@ function drawSolar(ctx: Context): void {
   rect(ctx, '#a8c8f0', 2, 4, 3, 1);
 }
 
-function drawFence(ctx: Context): void {
-  rect(ctx, '#3d4a35', 0, 16, 16, 2);
-  rect(ctx, '#6b5236', 0, 2, 3, 15); rect(ctx, '#8a6a44', 1, 2, 1, 14);
-  for (let y = 4; y < 16; y += 3) for (let x = 3; x < 16; x += 3) { rect(ctx, '#a8b0aa', x, y, 1, 1); rect(ctx, '#7a827c', x + 1, y + 1, 1, 1); }
-  rect(ctx, '#c9cfc9', 3, 3, 13, 1);
-}
 
-function drawThermo(ctx: Context): void {
-  rect(ctx, '#6b5236', 5, 12, 2, 10);
-  rect(ctx, '#654831', 0, 0, 12, 13); rect(ctx, '#fff0cd', 1, 1, 10, 11);
-  rect(ctx, '#c9c3b0', 5, 2, 2, 8); rect(ctx, '#e04a3a', 5, 4, 2, 6); oval(ctx, '#e04a3a', 6, 10, 2, 1);
-  rect(ctx, '#8a7a5a', 8, 3, 2, 1); rect(ctx, '#8a7a5a', 8, 6, 2, 1);
-}
 
-function drawLab(ctx: Context): void {
-  rect(ctx, '#3d4a35', 2, 36, 48, 3);
-  rect(ctx, '#d8d4c8', 4, 14, 44, 22); rect(ctx, '#b8b4a8', 4, 30, 44, 6);
-  for (let y = 0; y < 12; y++) rect(ctx, y % 4 === 3 ? '#2f6a5a' : '#3f8a74', 2 + Math.floor(y / 2), 3 + y, 48 - Math.floor(y / 2) * 2, 1);
-  rect(ctx, '#2a5a4c', 2, 14, 48, 2);
-  rect(ctx, '#5a6a72', 21, 20, 10, 16); rect(ctx, '#8aa8b8', 23, 22, 6, 6);
-  rect(ctx, '#8bb8b0', 8, 19, 9, 7); rect(ctx, '#dbede0', 8, 19, 9, 2); rect(ctx, '#8bb8b0', 35, 19, 9, 7); rect(ctx, '#dbede0', 35, 19, 9, 2);
-  rect(ctx, '#fff0cd', 14, 8, 24, 5); rect(ctx, '#3f8a74', 16, 10, 20, 1);
-}
 
 // ---------------------------------------------------------------- frogs and prey
 
@@ -423,16 +372,7 @@ function drawIcon(ctx: Context, kind: string): void {
   }
 }
 
-function drawKid(ctx: Context): void {
-  drawPerson(ctx, '#3f6a9a', '#5a8ac0', '#d84a3a', 0, c => { rect(c, '#d84a3a', 12, 3, 4, 2); rect(c, '#8bb8d0', 14, 14, 4, 4); rect(c, '#4a7a3a', 15, 16, 2, 1); });
-}
 
-function drawStone(ctx: Context, lit: boolean): void {
-  oval(ctx, '#1f3a44', 13, 9, 13, 5);
-  oval(ctx, lit ? '#5ae0d0' : '#5a5a54', 13, 7, 12, 5); oval(ctx, lit ? '#b8fff0' : '#8a8a80', 12, 6, 10, 3);
-  oval(ctx, lit ? '#e8fffa' : '#a8a89a', 10, 5, 5, 1);
-  rect(ctx, lit ? '#2a8a7a' : '#4a6a3a', 18, 9, 4, 1); rect(ctx, lit ? '#2a8a7a' : '#5a7a3a', 4, 8, 3, 1);
-}
 
 // ---------------------------------------------------------------- registry
 
@@ -443,39 +383,25 @@ export const simple: Record<string, [number, number, Draw]> = {
   palm: [44, 62, drawPalm],
   bush: [32, 25, drawBush],
   fern: [20, 22, drawFern],
-  rock: [20, 15, drawRock],
   flower: [10, 14, drawFlower],
-  board: [30, 33, drawBoard],
-  log: [45, 19, drawLog],
   stump: [20, 15, drawStump],
   hut: [82, 78, drawHut],
-  lab: [52, 40, drawLab],
-  researcher: [18, 26, ctx => drawPerson(ctx, '#468875', '#93b9a0', '#d8c995', 0, c => rect(c, '#e9dbae', 2, 4, 15, 2))],
   'researcher-2': [18, 26, ctx => drawPerson(ctx, '#3a6f8a', '#7aaac0', '#3f6a4a', 0, c => { rect(c, '#fff0cd', 14, 13, 4, 5); rect(c, '#8a7a5a', 15, 14, 2, 1); })],
   'frog-shadow': [20, 8, ctx => oval(ctx, '#203a2a', 10, 4, 9, 3)],
   pig: [22, 15, ctx => drawPig(ctx, 0)], 'pig-1': [22, 15, ctx => drawPig(ctx, 1)],
   'spore-pool': [30, 15, drawSporePool],
-  burrow: [30, 20, drawBurrow],
   volcano: [60, 40, drawVolcano],
-  lava: [36, 10, drawLava],
   pool: [52, 30, drawPool],
   solar: [22, 19, drawSolar],
-  fence: [16, 18, drawFence],
-  thermo: [12, 22, drawThermo],
   cricket: [14, 10, ctx => drawCricket(ctx, 0)], 'cricket-1': [14, 10, ctx => drawCricket(ctx, 1)],
   beetle: [10, 10, drawBeetle], millipede: [16, 6, drawMillipede], snail: [10, 9, drawSnail], crab: [14, 10, drawCrab],
   snake: [24, 9, ctx => drawSnake(ctx, 0)], 'snake-1': [24, 9, ctx => drawSnake(ctx, 1)],
   goldfly: [8, 7, ctx => drawGoldfly(ctx, 0)], 'goldfly-1': [8, 7, ctx => drawGoldfly(ctx, 1)],
   portrait: [72, 52, drawPortrait],
   scare: [80, 45, drawScare],
-  kid: [18, 26, drawKid],
-  stone: [26, 14, ctx => drawStone(ctx, false)], 'stone-lit': [26, 14, ctx => drawStone(ctx, true)],
   hunter: [20, 26, ctx => drawHunter(ctx, 0)], 'hunter-1': [20, 26, ctx => drawHunter(ctx, 1)],
-  spark: [2, 2, ctx => rect(ctx, '#ffffff', 0, 0, 2, 2)],
   spore: [3, 3, ctx => { rect(ctx, '#a6f06a', 0, 0, 3, 3); rect(ctx, '#e4ffb0', 1, 1, 1, 1); }],
   firefly: [3, 3, ctx => { rect(ctx, '#c8f07a', 0, 0, 3, 3); rect(ctx, '#fffbd0', 1, 1, 1, 1); }],
-  ash: [2, 2, ctx => rect(ctx, '#9a948e', 0, 0, 2, 2)],
-  rain: [1, 6, ctx => { rect(ctx, '#a8c8e8', 0, 0, 1, 6); rect(ctx, '#e0f0ff', 0, 0, 1, 2); }],
   leaf: [5, 4, ctx => { rect(ctx, '#6a9a3a', 0, 1, 5, 2); rect(ctx, '#9ac85a', 1, 0, 3, 1); rect(ctx, '#3f6a2a', 2, 3, 1, 1); }],
   steam: [6, 6, ctx => { oval(ctx, '#ffffffaa', 3, 3, 2, 2); rect(ctx, '#ffffff', 2, 2, 1, 1); }],
 };

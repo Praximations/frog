@@ -6,7 +6,7 @@ import { settings } from './Settings';
  */
 export type Sfx = 'click' | 'hop' | 'tongue' | 'gulp' | 'catch' | 'card' | 'stamp' | 'unlock' | 'hurt' | 'spotted' | 'scare'
   | 'correct' | 'wrong' | 'tick' | 'join' | 'react' | 'whoop' | 'splash' | 'rescue' | 'victory' | 'heal' | 'wind' | 'spore' | 'faint' | 'step' | 'crash' | 'chime';
-export type Music = 'lobby' | 'forest' | 'dusk' | 'night' | 'rescue' | 'trail' | 'quiz' | 'finale' | null;
+export type Music = 'lobby' | 'forest' | 'night' | 'rescue' | 'finale' | null;
 
 const midi = (note: number) => 440 * 2 ** ((note - 69) / 12);
 const chance = (p: number) => Math.random() < p;
@@ -20,7 +20,6 @@ class SoundSystem {
   private master?: GainNode;
   private musicBus?: GainNode;
   private sfxBus?: GainNode;
-  private echo?: GainNode;
   private noiseBuffer?: AudioBuffer;
   private current: Music = null;
   private wanted: Music = null;
@@ -42,11 +41,6 @@ class SoundSystem {
         this.master = this.ctx.createGain(); this.master.connect(compressor);
         this.musicBus = this.ctx.createGain(); this.musicBus.gain.value = 0.55; this.musicBus.connect(this.master);
         this.sfxBus = this.ctx.createGain(); this.sfxBus.connect(this.master);
-        // A soft echo used by the twilight trail and finale.
-        const delay = this.ctx.createDelay(1); delay.delayTime.value = 0.32;
-        const feedback = this.ctx.createGain(); feedback.gain.value = 0.35;
-        this.echo = this.ctx.createGain(); this.echo.gain.value = 0.5;
-        this.echo.connect(delay); delay.connect(feedback); feedback.connect(delay); delay.connect(this.musicBus);
         const length = this.ctx.sampleRate * 2;
         this.noiseBuffer = this.ctx.createBuffer(1, length, this.ctx.sampleRate);
         const data = this.noiseBuffer.getChannelData(0);
@@ -165,7 +159,7 @@ class SoundSystem {
     this.current = name;
     if (!name) return;
     this.step = 0; this.nextTime = this.ctx.currentTime + 0.08;
-    const beds: Partial<Record<Exclude<Music, null>, [number, number]>> = { forest: [900, 0.022], dusk: [700, 0.022], night: [420, 0.03], rescue: [1100, 0.016], trail: [600, 0.012] };
+    const beds: Partial<Record<Exclude<Music, null>, [number, number]>> = { forest: [900, 0.022], night: [420, 0.03], rescue: [1100, 0.016] };
     const bed = beds[name];
     if (bed) this.startBed(bed[0], bed[1]);
     if (name === 'night') this.startDrone();
@@ -205,7 +199,7 @@ class SoundSystem {
   private schedule(): void {
     const ctx = this.ctx;
     if (!ctx || !this.current) return;
-    const bpm = { lobby: 124, quiz: 140, finale: 118, forest: 84, dusk: 84, night: 72, rescue: 96, trail: 70 }[this.current];
+    const bpm = { lobby: 124, finale: 118, forest: 84, night: 72, rescue: 96 }[this.current];
     const sixteenth = 60 / bpm / 4;
     if (this.nextTime < ctx.currentTime - 0.5) this.nextTime = ctx.currentTime + 0.05; // tab was hidden
     while (this.nextTime < ctx.currentTime + 0.12) {
@@ -237,35 +231,17 @@ class SoundSystem {
       if (s === 0 || s === 8) this.drum('kick', t);
       if (s === 4 || s === 12) this.drum('snare', t);
       if (s % 4 === 2) this.drum('hat', t);
-    } else if (track === 'quiz') {
-      const s = step % 32;
-      const bass = [45, 45, 45, 45, 44, 44, 44, 44, 41, 41, 41, 41, 43, 43, 44, 44][Math.floor(s / 2)];
-      if (s % 2 === 0) this.tone(t, midi(bass - 12), sixteenth * 1.4, { gain: 0.08, filter: 600, dest });
-      if (s % 4 === 0) this.tone(t, midi(s % 8 ? 81 : 88), 0.05, { type: 'sine', gain: 0.03, dest });
-      if (s % 8 === 0) this.drum('kick', t, 0.7);
-      if (s % 2 === 1) this.drum('hat', t, 0.6);
-      if (s === 28) this.tone(t, midi(69), sixteenth * 4, { type: 'sawtooth', gain: 0.02, filter: 1500, dest });
-    } else if (track === 'forest' || track === 'dusk' || track === 'rescue') {
-      const scale = track === 'rescue' ? [67, 69, 71, 74, 76, 79, 81, 83] : track === 'dusk' ? [57, 60, 62, 64, 67, 69, 72] : [60, 62, 64, 67, 69, 72, 74, 76];
+    } else if (track === 'forest' || track === 'rescue') {
+      const scale = track === 'rescue' ? [67, 69, 71, 74, 76, 79, 81, 83] : [60, 62, 64, 67, 69, 72, 74, 76];
       if (step % 2 === 0 && chance(track === 'rescue' ? 0.22 : 0.13)) pluck(pick(scale), 0.035, 0.6, 'sine');
       if (step % 32 === 0) pluck(scale[0] - 12, 0.03, 1.8, 'sine');
-      if (chance(track === 'dusk' ? 0.01 : 0.025)) [2600, 3100, 2800].forEach((f, i) => this.tone(t + i * 0.07, f, 0.06, { type: 'sine', slide: f * 1.25, gain: 0.015, dest }));
-      if (chance(track === 'dusk' ? 0.02 : 0.012)) this.whoop(t, dest, 0.05);
-      if (track === 'dusk' && step % 4 === 0 && chance(0.25)) [0, 0.05, 0.1].forEach(dt => this.tone(t + dt, 4300, 0.03, { type: 'triangle', gain: 0.012, dest }));
+      if (chance(0.025)) [2600, 3100, 2800].forEach((f, i) => this.tone(t + i * 0.07, f, 0.06, { type: 'sine', slide: f * 1.25, gain: 0.015, dest }));
+      if (chance(0.012)) this.whoop(t, dest, 0.05);
     } else if (track === 'night') {
       const s = step % 32;
       if (s === 0 || s === 3) this.tone(t, 70, 0.2, { type: 'sine', slide: 40, gain: 0.18, dest });
       if (step % 4 === 0 && chance(0.3)) [0, 0.045, 0.09].forEach(dt => this.tone(t + dt, 4600, 0.025, { type: 'triangle', gain: 0.012, dest }));
       if (chance(0.006)) this.tone(t, midi(pick([69, 70, 75])), 2.4, { type: 'sine', gain: 0.025, vibrato: 4, dest, attack: 0.6 });
-    } else if (track === 'trail') {
-      const chords = [[60, 64, 67, 71], [57, 60, 64, 67], [53, 57, 60, 64], [55, 59, 62, 67]];
-      const chord = chords[Math.floor(step / 16) % 4];
-      if (step % 4 === 0) {
-        const note = chord[(step / 4) % 4] + 12;
-        this.tone(t, midi(note), 1.2, { type: 'sine', gain: 0.045, dest: this.echo! });
-        this.tone(t, midi(note + 12), 0.5, { type: 'sine', gain: 0.012, dest: this.echo! });
-      }
-      if (step % 16 === 0) this.tone(t, midi(chord[0] - 12), 2.8, { type: 'triangle', gain: 0.035, dest, attack: 0.4 });
     }
   }
 }

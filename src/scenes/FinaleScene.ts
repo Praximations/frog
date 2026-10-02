@@ -5,21 +5,22 @@ import { showOverlay } from '../ui/ScreenOverlay';
 import { showCards } from '../ui/cards';
 import { JOURNAL, SPECIES } from '../data/journal';
 import { SOURCES } from '../data/sources';
-import { classHost } from '../systems/ClassHost';
 import { sound } from '../systems/Sound';
-import { run } from '../systems/run';
 import { go } from '../systems/flow';
+import { TEAMS, winner } from '../systems/match';
+import type { MatchResult } from './PondScene';
 import { artUrl } from '../world/Art';
 import { esc, $ } from '../ui/html';
 
-/** The ending: a closing message, the Kahoot-style podium, and the completed Field Journal. */
+/** The ending: a closing message, the winning team and top frogs, and the completed Field Journal. */
 export class FinaleScene extends Phaser.Scene {
   private frogs?: AmbientFrogs;
   private root!: HTMLElement;
+  private result: MatchResult = { totals: [0, 0], ranks: [] };
   constructor() { super('FinaleScene'); }
 
-  create(): void {
-    for (const card of JOURNAL) run.journal.add(card.key);
+  create(data: { result?: MatchResult }): void {
+    this.result = data.result ?? { totals: [0, 0], ranks: [] };
     buildLevel(this, {
       key: 'terrain-title', width: 480, height: 280, palette: PALETTES.day,
       paths: [[[0, 170], [120, 150], [225, 150], [330, 120], [480, 110]]], clearings: [[225, 148, 50, 26]],
@@ -29,8 +30,6 @@ export class FinaleScene extends Phaser.Scene {
     this.add.particles(0, 0, 'firefly', { x: { min: 300, max: 1600 }, y: { min: 300, max: 1000 }, lifespan: 4000, speed: { min: 5, max: 20 }, scale: { start: 2.5, end: 0 }, alpha: { start: 1, end: 0 }, frequency: 120, blendMode: 'ADD' }).setDepth(4001);
     this.cameras.main.setBounds(0, 0, 1920, 1120).setScroll(290, 250);
     sound.music('finale');
-    classHost.publish({ mode: 'podium' });
-    classHost.announcePodium();
 
     this.root = showOverlay(this, `<section class="finale-screen">
       <div class="finale-quote" id="quote"><p>The future of a species can depend on what happens next.</p></div>
@@ -67,24 +66,23 @@ export class FinaleScene extends Phaser.Scene {
       });
     }
     $(this.root, '#sources').addEventListener('click', () => this.sources());
-    $(this.root, '#again').addEventListener('click', () => go(this, 'LobbyScene'));
+    $(this.root, '#again').addEventListener('click', () => go(this, 'PondScene'));
     $(this.root, '#title').addEventListener('click', () => go(this, 'MenuScene'));
     $(this.root, '#again').focus({ preventScroll: true });
   }
 
   private renderPodium(): void {
     const podium = $(this.root, '#podium');
-    const ranks = classHost.ranked();
-    if (!classHost.hasClass || !ranks.length) {
-      podium.innerHTML = `<div class="solo-win"><img class="pixel" src="${artUrl('portrait', 5)}" alt=""><b>You saved the mountain chicken… for now.</b><span>${run.population} frogs alive in our game. In the real world, 21 wild frogs were found on Dominica in 2023.</span></div>`;
-      sound.play('victory');
-      return;
-    }
+    const { totals, ranks } = this.result;
+    const won = winner(totals);
+    const teams = `<div class="final-teams">${[0, 1].map(team => `<div class="rt team-${team} ${won === team ? 'is-winner' : ''}"><span>${TEAMS[team].name}</span><b>${totals[team]}</b></div>`).join('<i>vs</i>')}</div>`;
+    const headline = `<h3 class="final-headline">${won === -1 ? 'A perfect draw!' : `${esc(TEAMS[won].name)} wins!`}</h3>`;
     const places = [ranks[1], ranks[0], ranks[2]];
-    podium.innerHTML = `<div class="podium">${places.map((rank, column) => {
+    const blocks = ranks.length ? `<div class="podium">${places.map((rank, column) => {
       const place = [2, 1, 3][column];
-      return rank ? `<div class="podium-col place-${place}" style="--delay:${[1.4, 2.8, 0][column]}s"><div class="podium-player"><img class="pixel" src="${artUrl('frog-down-0', 5)}" alt=""><b>${esc(rank.name)}</b><span>${rank.score} pts</span></div><div class="podium-block"><span>${place}</span></div></div>` : `<div class="podium-col place-${place} empty"></div>`;
-    }).join('')}</div><div class="confetti" aria-hidden="true">${Array.from({ length: 40 }, (_, i) => `<i style="--x:${(i * 37) % 100}%;--d:${(i % 7) * .35}s;--c:${['#c94b3c', '#3f6fb5', '#d9a02a', '#4f8f3a', '#fff0b4'][i % 5]}"></i>`).join('')}</div>`;
+      return rank ? `<div class="podium-col place-${place}" style="--delay:${[1.4, 2.8, 0][column]}s"><div class="podium-player"><img class="pixel" src="${artUrl('frog-down-0', 5)}" alt=""><b style="color:${TEAMS[rank.team].light}">${esc(rank.name)}</b><span>${rank.score} pts</span></div><div class="podium-block"><span>${place}</span></div></div>` : `<div class="podium-col place-${place} empty"></div>`;
+    }).join('')}</div>` : `<div class="solo-win"><img class="pixel" src="${artUrl('portrait', 4)}" alt=""></div>`;
+    podium.innerHTML = `${headline}${teams}${blocks}<div class="confetti" aria-hidden="true">${Array.from({ length: 40 }, (_, i) => `<i style="--x:${(i * 37) % 100}%;--d:${(i % 7) * .35}s;--c:${['#c94b3c', '#3f6fb5', '#d9a02a', '#4f8f3a', '#fff0b4'][i % 5]}"></i>`).join('')}</div>`;
     sound.play('tick');
     this.time.delayedCall(1400, () => sound.play('catch', 2));
     this.time.delayedCall(2800, () => sound.play('victory'));

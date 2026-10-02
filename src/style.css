@@ -61,39 +61,10 @@ h1 > span:last-child { color: #ffe49b; font-size: 1.12em; }
 @keyframes nudge { 50% { transform: translateX(8px); } }
 @keyframes pop-in { 0% { transform: scale(.4); opacity: 0; } 70% { transform: scale(1.08); opacity: 1; } 100% { transform: scale(1); } }
 @keyframes rise { from { transform: translateY(16px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes fade-in { from { opacity: 0; } }
 @keyframes shake { 20% { transform: translate(-6px, 3px); } 40% { transform: translate(5px, -4px); } 60% { transform: translate(-4px, -2px); } 80% { transform: translate(3px, 4px); } }
 
-/* ---------- gameplay HUD ---------- */
-.play-screen { width: 100%; height: 100%; position: relative; padding: 2.4cqh 2cqw; }
-.hud-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 1cqw; }
-.hud-left, .hud-right { display: flex; gap: .8cqw; align-items: flex-start; }
-.hud-left { flex-direction: column; }
-.hearts { display: flex; gap: 6px; padding: 7px 10px; }
-.heart { width: clamp(20px, 2.2cqw, 30px); height: auto; display: block; }
-.hearts .full path { fill: #d8463a; stroke: none; }
-.hearts .full .heart { filter: drop-shadow(0 2px #7a2a20); }
-.hearts .empty path { fill: #c9b796; }
-.journal-chip { display: flex; align-items: center; gap: 8px; padding: 4px 12px; min-height: 0; font-size: clamp(13px, 1.3cqw, 18px); }
-.journal-chip b { font-weight: 700; font-size: 1.15em; color: #4f8f3a; }
-.book { width: 18px; height: 14px; background: #8a3e2a; border: 2px solid var(--ink); box-shadow: inset 4px 0 #c86a4a; }
-.objective { padding: 8px 22px; max-width: 46%; text-align: center; animation: rise .4s; }
-.objective strong { display: block; font-size: clamp(16px, 1.75cqw, 24px); font-weight: 600; margin-top: 2px; color: #5a4636; }
-.population { display: grid; justify-items: center; padding: 4px 12px 5px; min-width: 9.5cqw; }
-.population b { font-family: 'PressStart', monospace; font-size: clamp(16px, 1.9cqw, 26px); color: #4f8f3a; line-height: 1.25; }
-.population small { font-size: clamp(9px, .85cqw, 12px); color: #9a8664; }
-.population.drop b { color: #c94b3c; animation: shake .4s 3; }
-.population.rise b { color: #3f8f3a; animation: pop-in .5s; }
-.chapter-tag { position: absolute; left: 2cqw; top: 19cqh; display: flex; flex-direction: column; color: #fff6d7; font-size: clamp(13px, 1.4cqw, 19px); text-shadow: 2px 2px #2f3f2a; }
-.chapter-tag span { font-size: .75em; opacity: .85; }
-.meter { position: absolute; left: 50%; top: 14.5cqh; transform: translateX(-50%); padding: 6px 14px; display: flex; gap: 12px; align-items: center; font-size: clamp(13px, 1.3cqw, 18px); }
-.meter-bar { width: 22cqw; height: 16px; background: #c9b796; border: 3px solid var(--ink); position: relative; }
-.meter-bar i { position: absolute; inset: 0; width: var(--v, 0%); background: repeating-linear-gradient(90deg, #95b76b 0 8px, #7fa35a 8px 10px); transition: width .25s; }
-.meter-bar.danger i { background: repeating-linear-gradient(90deg, #e07a4a 0 8px, #c95a3a 8px 10px); }
-.combo { font-family: 'PressStart', monospace; font-size: .75em; color: #c94b3c; }
-.interact-prompt { position: absolute; bottom: 11cqh; left: 50%; transform: translateX(-50%); background: var(--cream); border: 4px solid #6c583e; box-shadow: 0 4px #493f32; color: #625139; padding: 8px 16px; font-size: clamp(15px, 1.6cqw, 22px); white-space: nowrap; animation: pop-in .25s; }
-.interact-prompt kbd { margin-right: 10px; }
-.play-bottom { position: absolute; bottom: 2.4cqh; left: 2cqw; right: 2cqw; display: flex; justify-content: space-between; font-size: clamp(11px, 1.05cqw, 15px); color: #fff7dd; text-shadow: 2px 2px #2e3e2a; }
-.chapter-3 .chapter-tag, .chapter-3 .play-bottom, .chapter-5 .chapter-tag, .chapter-5 .play-bottom { text-shadow: 2px 2px #000; }
+/* ---------- toasts and reactions ---------- */
 .toasts { position: absolute; left: 2cqw; bottom: 9cqh; display: grid; gap: 8px; width: min(36cqw, 460px); }
 .toast { background: #fff4d6; border: 4px solid var(--ink); box-shadow: 0 4px var(--shadow); padding: 8px 12px; display: grid; gap: 2px; animation: rise .3s; font-size: clamp(13px, 1.3cqw, 18px); color: #5a4a3a; }
 .toast b { font-family: 'PressStart', monospace; font-size: .62em; color: #8a5a2a; text-transform: uppercase; }
@@ -108,7 +79,7 @@ h1 > span:last-child { color: #ffe49b; font-size: 1.12em; }
 .reaction-name { font-size: clamp(11px, 1cqw, 14px); color: #fff; background: #2e2a20cc; padding: 1px 6px; max-width: 14cqw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @keyframes float-up { 0% { transform: translate(0, 0) scale(.5); opacity: 0; } 12% { transform: translate(0, -6cqh) scale(1.1); opacity: 1; } 100% { transform: translate(var(--drift), -55cqh) scale(1); opacity: 0; } }
 
-/* ---------- banners, chapter intro ---------- */
+/* ---------- banners ---------- */
 .banner { position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%); display: grid; justify-items: center; gap: 1cqh; text-align: center; animation: pop-in .45s; z-index: 5; }
 .banner b { font-family: 'PressStart', monospace; font-weight: 400; font-size: clamp(22px, 3.6cqw, 52px); color: #fff3b8; text-shadow: -4px -4px #5a4a37, 4px -4px #5a4a37, -4px 4px #5a4a37, 4px 4px #5a4a37, 0 8px #2a2018; white-space: nowrap; }
 .banner span { font-size: clamp(15px, 1.8cqw, 26px); color: #fff; background: #3d2f27cc; padding: 4px 14px; }
@@ -116,18 +87,6 @@ h1 > span:last-child { color: #ffe49b; font-size: 1.12em; }
 .banner.is-sad b { color: #ffd0b8; font-size: clamp(18px, 2.4cqw, 34px); }
 .banner.is-threat b { color: #ff9a7a; }
 .banner.is-leaving { opacity: 0; transform: translate(-50%, -60%); transition: .3s; }
-.chapter-intro { position: absolute; inset: 0; pointer-events: auto; display: grid; place-content: center; justify-items: center; text-align: center; background: radial-gradient(ellipse at center, #10221cd8, #050c0aee); color: #fff6d7; animation: fade-in .4s; z-index: 6; }
-.chapter-intro.is-leaving { opacity: 0; transition: opacity .25s; }
-.ci-number { font-family: 'PressStart', monospace; font-size: clamp(12px, 1.4cqw, 20px); color: #c8f07a; letter-spacing: .2em; animation: rise .5s; }
-.chapter-intro h2 { font-family: 'PressStart', monospace; font-weight: 400; font-size: clamp(26px, 4.4cqw, 62px); margin: 2.4cqh 0; color: #fff0b4; text-shadow: 0 6px #5a4a37; animation: pop-in .6s; }
-.ci-tagline { font-size: clamp(18px, 2.4cqw, 34px); margin: 0; font-style: italic; animation: rise .8s; }
-.ci-place { font-size: clamp(13px, 1.4cqw, 19px); color: #c9d8b8; margin: 1.5cqh 0 3cqh; }
-.ci-dots { display: flex; gap: 10px; margin-bottom: 3cqh; }
-.ci-dots i { width: 16px; height: 16px; border: 3px solid #fff6d7; }
-.ci-dots i.done { background: #95b76b; }
-.ci-dots i.now { background: #fff0b4; animation: pop-in .8s; }
-@keyframes fade-in { from { opacity: 0; } }
-
 /* ---------- modal + pause ---------- */
 .modal-backdrop { position: absolute; inset: 0; pointer-events: auto; display: grid; place-items: center; background: #142a24a8; animation: fade-in .2s; z-index: 7; }
 .field-card { position: relative; width: min(800px, 85cqw); max-height: 92%; overflow: auto; padding: 3cqh 3cqw; border: 5px solid var(--wood-dark); background: var(--cream); box-shadow: inset 0 4px #fffbed, inset 0 -5px #d3b481, 0 6px var(--shadow); }
@@ -137,10 +96,6 @@ h1 > span:last-child { color: #ffe49b; font-size: 1.12em; }
 .pause-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .pause-actions > button:first-child { grid-column: span 2; }
 .pause-card .toggles { margin: 14px 0 6px; }
-.presenter-controls { margin-top: 12px; font-size: clamp(14px, 1.4cqw, 18px); border-top: 3px dashed #d6bd91; padding-top: 10px; }
-.presenter-controls summary { cursor: pointer; color: #7a6040; }
-.step-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px; }
-.step-grid .is-current { outline: 3px solid #4f8f3a; }
 .pause-card > .text-button { margin-top: 10px; }
 .tile-menu { width: min(520px, 70cqw); }
 .tile-menu .pause-actions > button:first-child { grid-column: auto; }
@@ -161,10 +116,3 @@ h1 > span:last-child { color: #ffe49b; font-size: 1.12em; }
 .caught-soft b { font-family: 'PressStart', monospace; font-weight: 400; color: #ff8a6a; font-size: clamp(22px, 3cqw, 40px); }
 .caught-soft span { color: #fff; font-size: clamp(14px, 1.6cqw, 22px); }
 
-/* ---------- small heights (Chromebook windows) ---------- */
-@container (max-height: 460px) {
-  .chapter-tag { display: none; }
-  .objective { padding: 4px 12px; }
-  .population small { display: none; }
-  .play-bottom > span:first-child { display: none; }
-}
