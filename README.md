@@ -11,16 +11,16 @@ npm install
 npm run dev
 ```
 
-Open http://127.0.0.1:5173 and choose **PLAY SOLO**.
+Open http://127.0.0.1:5173 and choose the arrow-shaped **PLAY** button.
 
 - WASD or arrow keys: move.
 - Space while moving: quick hop.
 - E near a board or insect: interact.
 - Escape or the pause button: pause/resume.
 
-Inspect the field board above your starting point. Follow the gold marker to catch three insects, then cross the wooden bridge and inspect the stream lookout. The direction hint points toward the current goal.
+Inspect the field board above your starting point. Follow the marker to catch three insects, cross the wooden bridge, and inspect the stream lookout. Then follow the path south to the researcher at the red-roofed field station. The direction hint points toward the current goal.
 
-The pause menu can resume, restart the forest, or return to the title. Information cards stop gameplay until you continue. Energy is a simplified game value, not a biological measurement.
+The pause menu can resume, retry the latest checkpoint, start over, or return to the title. Expand **Presenter** to move between checkpoints when demonstrating the game. Checkpoints restore position, food, energy, and objective progress for the current session; they do not persist after a page reload. Information cards stop gameplay until you continue. Energy is a simplified game value, not a biological measurement.
 
 ## Main device + play screen
 
@@ -33,7 +33,7 @@ This builds the game and starts a small Node server on port 3000. Keep that term
 1. On the main computer, open http://localhost:3000 and choose **MAIN DEVICE**. A real six-digit room code appears.
 2. On the second device, open a **same-network address printed by the terminal**, for example `http://192.168.x.x:3000`. Both devices must be on a network that allows them to reach the hosting computer.
 3. Choose **JOIN GAME**, enter the code, and connect.
-4. On the main computer, choose **START FOREST**.
+4. On the main computer, choose **Play ▸**.
 5. Play using the second device's touch controls or keyboard while watching the main screen.
 
 The main browser runs the game. The controller sends inputs and receives the current objective and pause/card state. It can move, hop, interact, continue field notes, and pause/resume. One controller can occupy a room at a time. Main-device keyboard control also remains available.
@@ -65,13 +65,14 @@ The optional relay was added in response to the later request for a main-device 
 
 ## Current playable content
 
-- A redesigned title screen with solo, main-device, and join choices.
+- A pixel-lettered title screen with a right-arrow Play button, main-device, and join choices.
 - A connected 2400 x 1600 forest with winding trails, a stream/bridge, layered trees, rocks, ferns, leaf litter, insects, ambient frogs, and drifting particles.
-- A shaded, illustrated frog with normalized directional movement, hop rhythm, quick hops, collision boundaries, and eased camera follow.
-- Three short objectives, an energy display, interaction prompts, field-note cards, and a pause/restart menu.
+- Original brown-and-cream frog sprites with four facing directions, blinking, hop poses, normalized movement, collision boundaries, and eased camera follow.
+- A red-roofed field station and researcher, short dialogue, four objectives, and checkpoint recovery with presenter navigation.
+- Locally bundled pixel fonts and matching wood-framed HUD, lobby, and controller screens.
 - Main-device lobby, six-digit codes, join validation, controller status, and a responsive touch/keyboard play screen.
 
-This is a **playable forest preview**, not the completed 12-20 minute conservation story. Decline events, conservation activities, researched presentation content, the six-degree trail, audio, and full rubric coverage remain future work. Visuals are stylized; the frog sprite is not an identification diagram. Feeding provenance is recorded in `SOURCES.md`.
+This is a **playable forest preview**, not the completed 12-20 minute conservation story. Decline events, conservation activities, the six-degree trail, audio, and full rubric coverage remain future work. Visuals are stylized; the frog sprite is not an identification diagram. Species facts and asset provenance are recorded in `SOURCES.md`.
 
 ## Architecture
 
@@ -87,6 +88,8 @@ src/
   entities/Frog.ts             Movement, visual hops, collision body
   world/ForestWorld.ts         Local pixel textures and environment
   systems/SessionClient.ts     Browser WebSocket session lifecycle
+  systems/CheckpointSystem.ts  Session recovery and presenter checkpoints
+  data/species.ts              Sourced species facts
   ui/ScreenOverlay.ts          Accessible HTML overlay lifecycle
   ui/session.css               Lobby/controller layouts
 server/
@@ -100,8 +103,9 @@ server/
 npm run check
 npm run build
 npm run test:connection
+npm run test:game
 ```
 
-Connection tests cover code creation, incorrect codes, occupied rooms, input relay, authoritative host state, disconnect reset, replacement controllers, host shutdown, static serving, and traversal rejection. Browser verification covers main/controller pairing through the network address, remote movement, field-board interaction, field-note continuation, and pause/resume.
+Connection tests cover code creation, incorrect codes, occupied rooms, input relay, authoritative host state, disconnect reset, replacement controllers, host shutdown, static serving, and traversal rejection. Game tests cover checkpoint snapshot isolation, restoration, bounds, and presenter prerequisites. Browser verification covers the title, gameplay, checkpoint recovery, and station layout; earlier pairing verification covers remote movement, field-board interaction, continuation, and pause/resume.
 
 Phaser's bundle triggers Vite's 500 kB size warning; builds succeed. Chromebook performance and two separate physical-device testing remain part of future presentation QA.

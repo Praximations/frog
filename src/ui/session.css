@@ -1,49 +1,54 @@
-.join-link { padding: 3px 0; min-height: 25px; font-size: clamp(9px, .85cqw, 12px); }
-.session-screen { height: 100%; padding: 3cqh 3cqw; background: #09251ddd; overflow-y: auto; }
+.session-screen { height: 100%; padding: 3cqh 3cqw; background: #3b654b3b; overflow-y: auto; }
 .session-header { display: flex; justify-content: space-between; align-items: center; }
-.session-header .text-button { padding: 9px 0; min-height: 35px; }
-.lobby-panel, .join-panel { margin: 1cqh auto 0; text-align: center; max-width: 680px; }
-.session-screen .eyebrow, .controller-screen .eyebrow { justify-content: center; }
-.session-screen h2, .controller-screen h2 { font-family: Georgia,serif; font-size: clamp(26px, 3.8cqw, 50px); font-weight: normal; margin: 2cqh 0; }
-.session-description { font-family: 'Trebuchet MS',Arial,sans-serif; font-size: clamp(12px, 1.25cqw, 18px); line-height: 1.6; color: #c1cfae; margin: 1cqh 0; }
-.room-code { font-family: 'Trebuchet MS',Arial,sans-serif; font-size: clamp(32px, 6.3cqw, 82px); letter-spacing: .15em; color: #e9ecc6; margin: 2cqh 0 1cqh; font-variant-numeric: tabular-nums; pointer-events: auto; user-select: text; }
-.session-status { font-family: 'Trebuchet MS',Arial,sans-serif; color: #bec7a1; font-size: clamp(11px, 1.15cqw, 16px); }
-.session-status.is-connected { color: #d6e8a2; }
-.join-instructions { display: grid; grid-template-columns: 25px 1fr; gap: 10px 13px; width: fit-content; margin: 2.5cqh auto 0; text-align: left; font-family: 'Trebuchet MS',Arial,sans-serif; color: #c7d0b0; font-size: clamp(11px, 1.15cqw, 16px); align-items: center; }
-.step-number { border: 1px solid #95a274; border-radius: 50%; width: 22px; height: 22px; display: grid; place-items: center; font-size: 11px; }
-.invite-address { font-family: 'Trebuchet MS',Arial,sans-serif; color: #94af8e; font-size: clamp(10px, 1cqw, 14px); margin: 2cqh 0; overflow-wrap: anywhere; pointer-events: auto; user-select: text; }
-.lobby-actions { display: flex; justify-content: center; gap: 12px; }
-.session-note { font-family: 'Trebuchet MS',Arial,sans-serif; color: #93a88c; font-size: clamp(10px, 1cqw, 14px); line-height: 1.5; margin: 2cqh 0 0; }
-.session-error { font-family: 'Trebuchet MS',Arial,sans-serif; color: #e4bd96; font-size: clamp(12px, 1.1cqw, 15px); line-height: 1.5; margin: 1cqh auto 0; max-width: 530px; }
+.session-header .text-button { background: #ffedc8; border: 3px solid #795b3d; padding: 5px 14px; min-height: 32px; }
+.session-header .micro { color: #fff4c6; text-shadow: 2px 2px #567447; font-size: 18px; }
+.lobby-panel, .join-panel { margin: 1cqh auto 0; text-align: center; max-width: 680px; padding: 3cqh 3cqw; background: #fff0cd; border: 5px solid #70533e; box-shadow: inset 0 4px #fffae3,inset 0 -5px #d1af7b,0 6px #49402e; }
+.session-screen .eyebrow, .controller-screen .eyebrow { color: #997646; font-size: clamp(13px,1.25cqw,18px); }
+.session-screen h2, .controller-screen h2 { font-family: 'Pixelify',monospace; font-size: clamp(28px,3.8cqw,46px); font-weight: 600; margin: 1cqh 0; color: #78573c; }
+.session-description { font-size: clamp(16px,1.5cqw,21px); line-height: 1.3; color: #78644c; margin: 1cqh 0; }
+.room-code { font-family: 'PressStart',monospace; font-size: clamp(25px,4.4cqw,57px); color: #567543; margin: 3cqh 0 2cqh; padding: 2cqh 0; background: #e4e5b3; border: 3px solid #c5bf82; pointer-events: auto; user-select: text; }
+.session-status { color: #8b775a; font-size: clamp(14px,1.4cqw,20px); }
+.session-status.is-connected { color: #4c7a47; }
+.join-instructions { display: grid; grid-template-columns: 25px 1fr; gap: 9px 12px; width: fit-content; margin: 2cqh auto 0; text-align: left; color: #78644b; font-size: clamp(14px,1.3cqw,18px); align-items: center; }
+.step-number { border: 2px solid #a78759; background: #f4dcaa; width: 23px; height: 23px; display: grid; place-items: center; }
+.invite-address { color: #718454; font-size: clamp(13px,1.2cqw,17px); margin: 2cqh 0; overflow-wrap: anywhere; pointer-events: auto; user-select: text; }
+.lobby-actions { display: flex; justify-content: center; gap: 14px; }
+.session-note { color: #8b7d60; font-size: clamp(13px,1.2cqw,17px); line-height: 1.35; margin: 2cqh 0 0; }
+.session-error { color: #b35d45; font-size: clamp(15px,1.4cqw,19px); line-height: 1.3; margin: 1cqh auto 0; max-width: 530px; }
 .controller-mode #game-shell { width: 100vw; height: 100dvh; }
 .controller-mode #game { visibility: hidden; }
-.controller-screen { height: 100%; padding: 20px 30px; overflow: auto; background: radial-gradient(ellipse at top,#243e2c,#0c241d 65%); pointer-events: auto; }
-.controller-screen .session-header { max-width: 1000px; margin: auto; }
-.controller-screen h2 { font-size: clamp(28px, 4vw, 44px); }
-.controller-screen .micro { font-size: 11px; }
-.controller-screen .eyebrow { font-size: 11px; }
-.controller-screen .session-description { font-size: 16px; }
-.controller-screen button { font-size: 12px; }
-.controller-screen .session-note { font-size: 12px; }
-.join-panel { padding-top: 5vh; }
-#join-form { margin: 28px auto 15px; max-width: 360px; text-align: left; }
-#join-form input { display: block; width: 100%; margin: 12px 0 20px; background: #0e271e; border: 1px solid #9baa79; border-radius: 5px; padding: 16px; color: #e3e7bc; font-size: 36px; letter-spacing: .25em; text-align: center; }
+.controller-screen { height: 100%; padding: 20px 30px; overflow: auto; background-color: #a3b77c; background-image: linear-gradient(45deg,#9bb272 25%,transparent 25%),linear-gradient(-45deg,#9bb272 25%,transparent 25%); background-size: 16px 16px; pointer-events: auto; }
+.controller-screen .session-header { max-width: 850px; margin: auto; }
+.controller-screen h2 { font-size: clamp(28px,5vw,42px); }
+.controller-screen .micro { font-size: 16px; }
+.controller-screen .eyebrow { font-size: 16px; }
+.controller-screen .session-description { font-size: 19px; }
+.controller-screen button { font-size: 18px; }
+.controller-screen .session-note { font-size: 16px; }
+.join-panel { margin-top: 5vh; }
+#join-form { margin: 24px auto 15px; max-width: 360px; text-align: left; }
+#join-form input { display: block; width: 100%; margin: 10px 0 22px; background: #e1e5b8; border: 4px solid #8b8154; padding: 16px 8px; color: #53633e; font-family: 'PressStart',monospace; font-size: 25px; letter-spacing: .08em; text-align: center; }
 #join-form button { width: 100%; }
-.control-layout { max-width: 720px; margin: 24px auto 0; text-align: center; }
-.controller-heading h2 { margin: 15px 0; }
-#remote-objective { color: #dee4ba; font-family: 'Trebuchet MS',Arial,sans-serif; font-size: 19px; margin: 0; }
-.controller-message { color: #a8ba98; font-family: 'Trebuchet MS',Arial,sans-serif; font-size: 14px; margin: 17px 0; }
-#control-pad { display: flex; justify-content: space-evenly; align-items: center; gap: 35px; margin-top: 30px; }
+.control-layout { max-width: 720px; margin: 20px auto 0; padding: 25px 24px; text-align: center; background: #fff0cd; border: 5px solid #70533e; box-shadow: 0 6px #49402e; }
+.controller-heading h2 { margin: 10px 0; }
+#remote-objective { color: #556c3e; font-size: 23px; margin: 0; }
+.controller-message { color: #8c7654; font-size: 18px; margin: 12px 0; }
+#control-pad { display: flex; justify-content: space-evenly; align-items: center; gap: 30px; margin-top: 25px; }
 #control-pad button { touch-action: none; user-select: none; -webkit-user-select: none; }
-.direction-pad { display: grid; grid-template-columns: repeat(3,70px); grid-template-rows: repeat(3,70px); gap: 7px; }
-.direction-pad button { background: #294536; color: #e1e5ba; border-color: #788d65; padding: 0; font-size: 28px; }
-.direction-pad button:active, .action-pad button:active { background: #a5b97c; color: #102619; }
+.direction-pad { display: grid; grid-template-columns: repeat(3,65px); grid-template-rows: repeat(3,65px); gap: 6px; }
+.direction-pad button { background: #e1e8bb; color: #5a7047; border-color: #748355; box-shadow: inset 0 4px #f1f4d1,inset 0 -4px #abb888,0 4px #536340; padding: 0; font-family: monospace; font-size: 28px; }
+.direction-pad button:active { background: #afc385; }
 .pad-up { grid-column: 2; grid-row: 1; }.pad-left { grid-column: 1; grid-row: 2; }.pad-right { grid-column: 3; grid-row: 2; }.pad-down { grid-column: 2; grid-row: 3; }
-.pad-center { grid-column: 2; grid-row: 2; display: grid; place-items: center; font-size: 25px; color: #9eaf78; }
-.action-pad { display: grid; grid-template-columns: 110px 110px; gap: 12px; }
-.action-pad button { height: 104px; border-radius: 8px; padding: 13px; font-size: 12px; }
-.action-pad button span { display: block; font-size: 9px; letter-spacing: .08em; font-weight: normal; margin-top: 13px; }
-.action-pad .interact-control { background: #415c40; color: #e1e8c2; border-color: #86966c; }
-.action-pad .pause-control { grid-column: span 2; height: 46px; }
-@media (max-width: 570px) { .controller-screen { padding: 12px 17px; } .control-layout { margin-top: 25px; } #control-pad { gap: 18px; flex-direction: column; margin-top: 20px; } .direction-pad { grid-template-columns: repeat(3,65px); grid-template-rows: repeat(3,65px); } .action-pad { grid-template-columns: 120px 120px; } .action-pad button { height: 72px; } .action-pad button span { margin-top: 8px; } }
-@media (max-height: 540px) and (min-width: 571px) { .controller-heading h2 { font-size: 26px; margin: 8px 0; } .control-layout { margin-top: 5px; } #control-pad { margin-top: 8px; } .direction-pad { grid-template-columns: repeat(3,53px); grid-template-rows: repeat(3,53px); } .controller-screen { padding-top: 10px; } }
+.pad-center { grid-column: 2; grid-row: 2; display: grid; place-items: center; font-size: 28px; color: #859961; }
+.action-pad { display: grid; grid-template-columns: 105px 105px; gap: 12px; }
+.action-pad button { height: 98px; padding: 10px 5px; font-size: 17px; }
+.action-pad button span { display: block; font-size: 12px; font-weight: 400; margin-top: 12px; }
+.action-pad .interact-control { background: #e0e9bd; }
+.action-pad .pause-control { grid-column: span 2; height: 44px; }
+.presenter-controls { margin-top: 18px; font-size: 17px; border-top: 2px solid #d6bd91; padding-top: 10px; }
+.presenter-controls summary { cursor: pointer; pointer-events: auto; }
+.presenter-controls p { font-size: 16px; }
+.presenter-controls button { width: 45%; float: none; margin-right: 4px; font-size: 16px; }
+@media (max-width: 570px) { .controller-screen { padding: 12px; } .control-layout { margin-top: 20px; padding: 20px 10px; } #control-pad { gap: 22px; flex-direction: column; margin-top: 18px; } .direction-pad { grid-template-columns: repeat(3,57px); grid-template-rows: repeat(3,57px); } .action-pad { grid-template-columns: 115px 115px; } .action-pad button { height: 68px; } .action-pad button span { margin-top: 5px; } .controller-screen .join-panel { padding: 25px 15px; } }
+@media (max-height: 540px) and (min-width: 571px) { .control-layout { margin-top: 5px; padding: 10px; } #control-pad { margin-top: 8px; } .direction-pad { grid-template-columns: repeat(3,45px); grid-template-rows: repeat(3,45px); } .controller-screen { padding-top: 10px; } .controller-heading h2 { font-size: 26px; margin: 3px 0; } }
+@container (max-height: 440px) { .lobby-panel { padding: 12px 20px; } .room-code { margin: 12px 0; padding: 12px; } .join-instructions { margin-top: 10px; gap: 5px; } .session-description { font-size: 14px; } .session-screen h2 { font-size: 27px; } .session-note { margin-top: 8px; } }

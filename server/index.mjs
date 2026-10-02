@@ -7,7 +7,7 @@ import { networkInterfaces } from 'node:os';
 import { WebSocketServer, WebSocket } from 'ws';
 
 const dist = fileURLToPath(new URL('../dist/', import.meta.url));
-const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.woff2': 'font/woff2' };
+const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.ttf': 'font/ttf' };
 const send = (socket, value) => { if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(value)); };
 
 /** Optional LAN pairing relay. The browser on the main device owns all game state. */

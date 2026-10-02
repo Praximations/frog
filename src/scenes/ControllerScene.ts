@@ -30,7 +30,7 @@ export class ControllerScene extends Phaser.Scene {
 
   private joinForm(error = ''): void {
     this.stopControls();
-    this.root.querySelector('#controller-content')!.innerHTML = `<div class="join-panel"><div class="eyebrow">STEP INTO THE SAME FOREST</div><h2>Join the main screen.</h2><p class="session-description">Enter the six-digit code shown on the main device.</p><form id="join-form"><label class="micro" for="code-input">FOREST CODE</label><input id="code-input" name="code" type="text" inputmode="numeric" autocomplete="off" maxlength="6" pattern="[0-9]{6}" required placeholder="000000" aria-describedby="join-error"><button id="join-button" type="submit">CONNECT & PLAY ↗</button></form><div class="session-error" id="join-error" role="alert"></div><p class="session-note">Keep the main screen open. Your device becomes the controller.</p></div>`;
+    this.root.querySelector('#controller-content')!.innerHTML = `<div class="join-panel"><div class="eyebrow">ROOM CODE</div><h2>Join game</h2><p class="session-description">Enter the code from the main screen.</p><form id="join-form"><label class="micro" for="code-input">FOREST CODE</label><input id="code-input" name="code" type="text" inputmode="numeric" autocomplete="off" maxlength="6" pattern="[0-9]{6}" required placeholder="000000" aria-describedby="join-error"><button id="join-button" type="submit">Join ▸</button></form><div class="session-error" id="join-error" role="alert"></div><p class="session-note">The game stays on the main screen.</p></div>`;
     this.root.querySelector('#join-error')!.textContent = error;
     const form = this.root.querySelector<HTMLFormElement>('#join-form')!;
     const input = this.root.querySelector<HTMLInputElement>('#code-input')!;
@@ -44,13 +44,13 @@ export class ControllerScene extends Phaser.Scene {
       try { await session.connect('controller', input.value); }
       catch {
         if (this.root.querySelector('#join-error')) this.root.querySelector('#join-error')!.textContent = session.error;
-        if (button.isConnected) { button.disabled = false; button.textContent = 'CONNECT & PLAY ↗'; }
+        if (button.isConnected) { button.disabled = false; button.textContent = 'Join ▸'; }
       }
     });
   }
 
   private controlScreen(): void {
-    this.root.querySelector('#controller-content')!.innerHTML = `<div class="control-layout"><div class="controller-heading"><span class="micro">CONNECTED TO FOREST <span id="connected-code"></span></span><h2>Your frog. Your next hop.</h2><p id="remote-objective" role="status"></p></div><div class="controller-message" id="controller-message"></div><div id="control-pad"><div class="direction-pad"><button data-control="up" class="pad-up" aria-label="Move up">↑</button><button data-control="left" class="pad-left" aria-label="Move left">←</button><span class="pad-center">✦</span><button data-control="right" class="pad-right" aria-label="Move right">→</button><button data-control="down" class="pad-down" aria-label="Move down">↓</button></div><div class="action-pad"><button data-control="hop" class="hop-control">HOP<span>SPACE</span></button><button data-control="interact" class="interact-control" id="remote-interact">INTERACT<span>E / ENTER</span></button><button data-control="pause" class="secondary pause-control">PAUSE / RESUME</button></div></div><p class="session-note">Touch and hold to move. Keyboard: WASD / arrows, Space, E, Escape.</p></div>`;
+    this.root.querySelector('#controller-content')!.innerHTML = `<div class="control-layout"><div class="controller-heading"><span class="micro">ROOM <span id="connected-code"></span></span><h2>Controller</h2><p id="remote-objective" role="status"></p></div><div class="controller-message" id="controller-message"></div><div id="control-pad"><div class="direction-pad"><button data-control="up" class="pad-up" aria-label="Move up">↑</button><button data-control="left" class="pad-left" aria-label="Move left">←</button><span class="pad-center">✦</span><button data-control="right" class="pad-right" aria-label="Move right">→</button><button data-control="down" class="pad-down" aria-label="Move down">↓</button></div><div class="action-pad"><button data-control="hop" class="hop-control">HOP<span>SPACE</span></button><button data-control="interact" class="interact-control" id="remote-interact">INTERACT<span>E / ENTER</span></button><button data-control="pause" class="secondary pause-control">PAUSE / RESUME</button></div></div><p class="session-note">Touch and hold to move. Keyboard: WASD / arrows, Space, E, Escape.</p></div>`;
     this.inputs = { ...EMPTY_INPUT }; this.held.clear();
     for (const button of this.root.querySelectorAll<HTMLButtonElement>('[data-control]')) {
       const control = button.dataset.control!;
@@ -86,7 +86,7 @@ export class ControllerScene extends Phaser.Scene {
   private updateStatus(): void {
     this.root.querySelector('#connected-code')!.textContent = session.code;
     this.root.querySelector('#remote-objective')!.textContent = session.state.objective;
-    const messages = { lobby: 'Connected. The main device will start the forest.', playing: 'Look at the main screen while you play.', paused: 'The forest is paused. Press Pause / Resume to return.', card: 'A field note is open on the main screen. Press Continue when ready.' };
+    const messages = { lobby: 'Waiting for the host to start.', playing: 'Watch the main screen.', paused: 'Paused. Press Resume to play.', card: 'Press Continue when ready.' };
     this.root.querySelector('#controller-message')!.textContent = messages[session.state.mode];
     this.root.querySelector('#remote-interact')!.innerHTML = session.state.mode === 'card' ? 'CONTINUE<span>E / ENTER</span>' : 'INTERACT<span>E / ENTER</span>';
   }
