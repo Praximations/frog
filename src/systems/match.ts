@@ -1,52 +1,55 @@
-/** Pure team-game helpers (no Phaser), shared by the projector and phones and unit tested. */
-export type Team = 0 | 1;
+/** Pure scoring helpers (no Phaser), shared by the projector and phones and unit tested. */
 
-export const TEAMS = [
-  { id: 0 as Team, name: 'Team Dominica', short: 'Dominica', color: '#4f9a3a', light: '#c8f07a', hex: 0x4f9a3a },
-  { id: 1 as Team, name: 'Team Montserrat', short: 'Montserrat', color: '#e0802a', light: '#ffd08a', hex: 0xe0802a },
+/**
+ * Every player gets their own colour so they can spot their frog: the ring under it, its name tag,
+ * and the colour bar on their phone. Picked to stand out on grass and dirt, day or night.
+ */
+export const COLORS = [
+  { name: 'Red', hex: '#ff4d4d' }, { name: 'Blue', hex: '#4d8bff' }, { name: 'Yellow', hex: '#ffe14d' },
+  { name: 'Purple', hex: '#a35cff' }, { name: 'Orange', hex: '#ff9a2e' }, { name: 'Cyan', hex: '#3de0ff' },
+  { name: 'Pink', hex: '#ff6ad5' }, { name: 'White', hex: '#ffffff' }, { name: 'Lime', hex: '#b6f24d' },
+  { name: 'Navy', hex: '#2a3f9a' }, { name: 'Coral', hex: '#ff8a76' }, { name: 'Teal', hex: '#14a39a' },
+  { name: 'Gold', hex: '#d4a017' }, { name: 'Lavender', hex: '#c9a7ff' }, { name: 'Magenta', hex: '#e0218a' },
+  { name: 'Sky', hex: '#8fd3ff' }, { name: 'Black', hex: '#2a2a2a' }, { name: 'Mint', hex: '#7dffc8' },
+  { name: 'Maroon', hex: '#8b1e3f' }, { name: 'Silver', hex: '#b8c2cc' },
 ];
+export type PlayerColor = (typeof COLORS)[number];
 
-export interface Scored { id: string; name: string; team: Team; score: number; bot?: boolean }
-
-/** New players join the smaller team (ties go to Dominica). */
-export function pickTeam(members: Iterable<{ team: Team }>): Team {
-  const counts = teamSizes(members);
-  return counts[1] < counts[0] ? 1 : 0;
+/** The least-used colour, so the first 20 players all get different ones. */
+export function pickColor(used: Iterable<number>): number {
+  const counts = COLORS.map(() => 0);
+  for (const index of used) if (counts[index] !== undefined) counts[index]++;
+  return counts.indexOf(Math.min(...counts));
 }
 
-export function teamSizes(members: Iterable<{ team: Team }>): [number, number] {
-  const counts: [number, number] = [0, 0];
-  for (const member of members) counts[member.team]++;
-  return counts;
+/** Dark text on light colours, white text on dark ones. */
+export function textOn(hex: string): string {
+  const value = parseInt(hex.slice(1), 16);
+  const luminance = (0.299 * (value >> 16) + 0.587 * ((value >> 8) & 255) + 0.114 * (value & 255)) / 255;
+  return luminance > .6 ? '#1d1712' : '#ffffff';
 }
 
-export function teamTotals(members: Iterable<{ team: Team; score: number }>): [number, number] {
-  const totals: [number, number] = [0, 0];
-  for (const member of members) totals[member.team] += member.score;
-  return totals;
-}
+export interface Scored { id: string; name: string; score: number; bot?: boolean }
+export interface Ranked { id: string; name: string; score: number; rank: number }
 
-/** 0 or 1 for the winning team, -1 for a draw. */
-export function winner(totals: [number, number]): Team | -1 {
-  return totals[0] === totals[1] ? -1 : totals[0] > totals[1] ? 0 : 1;
-}
-
-export interface Ranked { id: string; name: string; team: Team; score: number; rank: number }
-
-/** Highest score first; equal scores share a rank; bots never take a podium spot from a person. */
+/** Highest score first; equal scores share a rank; computer frogs never take a place from a person. */
 export function ranking(members: Iterable<Scored>): Ranked[] {
   const sorted = [...members].filter(member => !member.bot).sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
   let rank = 0, previous = Number.NaN;
   return sorted.map((member, index) => {
     if (member.score !== previous) { rank = index + 1; previous = member.score; }
-    return { id: member.id, name: member.name, team: member.team, score: member.score, rank };
+    return { id: member.id, name: member.name, score: member.score, rank };
   });
 }
 
-/** How many computer frogs each team needs so neither side is ever empty (min frogs per team). */
-export function botsNeeded(humans: [number, number], minimum = 2): [number, number] {
-  return [Math.max(0, minimum - humans[0]), Math.max(0, minimum - humans[1])];
-}
+/** Computer frogs join only when fewer than `minimum` people are playing, so it never feels empty. */
+export const botsNeeded = (humans: number, minimum = 3): number => Math.max(0, minimum - humans);
 
 /** Losing points never goes below zero. */
 export const addPoints = (score: number, points: number): number => Math.max(0, score + points);
+
+/** Quiz points: 10 for a right answer plus up to 5 for answering fast. */
+export function quizPoints(correct: boolean, secondsLeft: number, seconds: number): number {
+  if (!correct) return 0;
+  return 10 + Math.round(5 * Math.max(0, Math.min(1, secondsLeft / seconds)));
+}

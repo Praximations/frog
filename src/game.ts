@@ -1,6 +1,5 @@
 import Phaser from 'phaser';
 import { BootScene } from './scenes/BootScene';
-import { MenuScene } from './scenes/MenuScene';
 import { IntroScene } from './scenes/IntroScene';
 import { PondScene } from './scenes/PondScene';
 import { FinaleScene } from './scenes/FinaleScene';
@@ -19,7 +18,7 @@ export function startGame(): void {
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
     physics: { default: 'arcade', arcade: { gravity: { x: 0, y: 0 }, debug: false } },
     audio: { noAudio: true },
-    scene: [BootScene, MenuScene, IntroScene, PondScene, FinaleScene],
+    scene: [BootScene, IntroScene, PondScene, FinaleScene],
   });
   // Browsers only start audio after a gesture.
   for (const event of ['pointerdown', 'keydown', 'touchstart']) window.addEventListener(event, () => sound.unlock(), { capture: true, passive: true });

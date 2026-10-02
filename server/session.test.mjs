@@ -75,7 +75,7 @@ test('a class joins with a code and nicknames; joysticks and reactions reach the
   assert.equal((await ben.next('state')).state.mode, 'round');
   // Players cannot overwrite the host's state, and unknown modes are refused.
   ana.send({ type: 'state', state: { mode: 'final' } });
-  host.send({ type: 'state', state: { mode: 'quiz' } });
+  host.send({ type: 'state', state: { mode: 'dance' } });
   await new Promise(resolve => setTimeout(resolve, 100));
   assert.equal(server.rooms.get(code).state.mode, 'round');
 
@@ -92,6 +92,18 @@ test('a class joins with a code and nicknames; joysticks and reactions reach the
   assert.deepEqual(await host.next('react'), { type: 'react', id: benJoined.id, emoji: '🐸' });
   ben.send({ type: 'react', emoji: '<script>' });
   assert.ok(await host.quiet('react'), 'unknown reactions are dropped');
+
+  // Quiz answers and "find me" taps reach the host; malformed answers don't.
+  ana.send({ type: 'answer', q: 'main-food', choice: 2 });
+  assert.deepEqual(await host.next('answer'), { type: 'answer', id: joined.id, q: 'main-food', choice: 2 });
+  await new Promise(resolve => setTimeout(resolve, 220));
+  ana.send({ type: 'answer', q: 'main-food', choice: 7 });
+  ana.send({ type: 'answer', q: '<b>', choice: 1 });
+  assert.ok(await host.quiet('answer', 250), 'invalid answers are dropped');
+  ben.send({ type: 'ping' });
+  assert.deepEqual(await host.next('ping'), { type: 'ping', id: benJoined.id });
+  ben.send({ type: 'ping' });
+  assert.ok(await host.quiet('ping'), '"find me" is rate-limited');
 
   host.send({ type: 'to', id: joined.id, data: { kind: 'caught' } });
   assert.deepEqual((await ana.next('private')).data, { kind: 'caught' });

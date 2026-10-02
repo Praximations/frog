@@ -6,6 +6,11 @@ export const NAME_LENGTH = 16;
 export const PLAYERS_PER_ROOM = 60;
 export const REACTIONS = ['🐸', '❤️', '😱', '👏', '🔥', '🦗'];
 
+/** A quiz answer from a player: the question's id and one of four choices. */
+export function validAnswer(message) {
+  return !!message && typeof message.q === 'string' && /^[a-z0-9-]{1,24}$/.test(message.q) && Number.isInteger(message.choice) && message.choice >= 0 && message.choice <= 3;
+}
+
 /** Nicknames: printable, single-spaced, at most 16 characters (counted as code points). */
 export function cleanName(value) {
   if (typeof value !== 'string') return '';

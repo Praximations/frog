@@ -1,28 +1,46 @@
-import type { Team } from './match';
 import { openLink, type Link, type LinkKind } from './link';
 
+/** A quiz question as phones see it (the right answer is only sent at the reveal). */
+export interface QuizView { q: string; question: string; answers: string[]; seconds: number }
+
 /**
- * What phones are told to show. The relay forwards this object unchanged.
- * intro = "how to play", round = the game, learn = the presenter is showing the fact cards.
+ * What every phone shows. The relay forwards this object unchanged.
+ * intro = "how to play"; round = playing; quiz/reveal = a question; results = between rounds;
+ * learn = the host is showing fact cards; final = the end.
  */
 export type PhoneState =
   | { mode: 'lobby' }
-  | { mode: 'intro' | 'round'; title: string; goal: string }
+  | { mode: 'intro'; title: string; goal: string }
+  | { mode: 'round'; round: number; rounds: number; title: string; goal: string }
+  | ({ mode: 'quiz' } & QuizView)
+  | { mode: 'reveal'; q: string; correct: number; answer: string; fact: string }
+  | { mode: 'results'; title: string }
   | { mode: 'learn'; title: string }
-  | { mode: 'final'; winner: Team | -1 }
+  | { mode: 'final' }
   | { mode: 'paused' };
 
-/** One-player messages: your team, your score, "you were caught", the secret scare, final placing. */
+export type BoostKind = 'speed' | 'tongue' | 'double' | 'shield';
+
+/** One-player messages. */
 export type PrivateMessage =
-  | { kind: 'you'; team: Team }
+  | { kind: 'you'; name: string; color: string; colorName: string }
   | { kind: 'score'; score: number }
-  | { kind: 'caught'; scare: boolean }
+  | { kind: 'caught'; scare: boolean; by: 'hunter' | 'trap' | 'pig' }
   | { kind: 'shock' }
-  | { kind: 'final'; rank: number; of: number; score: number; team: Team; won: boolean };
+  | { kind: 'boost'; boost: BoostKind; seconds: number }
+  | { kind: 'sick'; sick: boolean }
+  | { kind: 'result'; q: string; correct: boolean; points: number }
+  | { kind: 'final'; rank: number; of: number; score: number };
+
+/** Things a player does that reach the projector. */
+export type PlayerEvent =
+  | { type: 'react'; id: string; name: string; emoji: string }
+  | { type: 'answer'; id: string; q: string; choice: number }
+  | { type: 'ping'; id: string };
 
 export interface ClassPlayerInfo { id: string; name: string; online: boolean }
 type Listener = (event: { type: 'join' | 'leave' | 'removed' | 'status'; id?: string }) => void;
-type ReactHandler = (value: { id: string; name: string; emoji: string }) => void;
+type EventHandler = (event: PlayerEvent) => void;
 
 /** The projector's side of class mode: join code, roster and every phone's joystick. */
 class ClassHost {
@@ -40,10 +58,10 @@ class ClassHost {
   private inputs = new Map<string, { x: number; y: number; at: number }>();
   private socket?: WebSocket;
   private listeners = new Set<Listener>();
-  private reactHandlers = new Set<ReactHandler>();
+  private eventHandlers = new Set<EventHandler>();
 
   subscribe(listener: Listener): () => void { this.listeners.add(listener); return () => this.listeners.delete(listener); }
-  onReact(handler: ReactHandler): () => void { this.reactHandlers.add(handler); return () => this.reactHandlers.delete(handler); }
+  onEvent(handler: EventHandler): () => void { this.eventHandlers.add(handler); return () => this.eventHandlers.delete(handler); }
   private emit(type: 'join' | 'leave' | 'removed' | 'status', id?: string): void { this.listeners.forEach(listener => listener({ type, id })); }
 
   /** Creates a room if a class server (or Firebase) is reachable; otherwise the game runs on this computer only. */
@@ -131,9 +149,13 @@ class ClassHost {
     } else if (message.type === 'input') {
       const input = message.input as { x: number; y: number };
       this.inputs.set(String(message.id), { x: input.x, y: input.y, at: performance.now() });
-    } else if (message.type === 'react') {
+    } else if (message.type === 'react' || message.type === 'answer' || message.type === 'ping') {
       const player = this.players.get(String(message.id));
-      if (player) this.reactHandlers.forEach(handler => handler({ id: player.id, name: player.name, emoji: String(message.emoji) }));
+      if (!player) return;
+      const event: PlayerEvent = message.type === 'react' ? { type: 'react', id: player.id, name: player.name, emoji: String(message.emoji) }
+        : message.type === 'answer' ? { type: 'answer', id: player.id, q: String(message.q), choice: Number(message.choice) }
+          : { type: 'ping', id: player.id };
+      this.eventHandlers.forEach(handler => handler(event));
     }
   }
 

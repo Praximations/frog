@@ -4,3 +4,4 @@ export declare const PLAYERS_PER_ROOM: number;
 export declare const REACTIONS: string[];
 export declare function cleanName(value: unknown): string;
 export declare function uniqueName(names: Iterable<string>, name: string): string;
+export declare function validAnswer(message: unknown): boolean;

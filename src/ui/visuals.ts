@@ -1,4 +1,4 @@
-import { artUrl } from '../world/Art';
+import { artUrl } from '../world/pixels';
 import { SIX_DEGREES, BONUS_CHAIN, type JournalCard } from '../data/journal';
 import { esc } from './html';
 

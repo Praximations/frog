@@ -8,7 +8,6 @@ import { SOURCES } from '../data/sources';
 import { classHost } from '../systems/ClassHost';
 import { sound } from '../systems/Sound';
 import { go } from '../systems/flow';
-import { TEAMS, winner } from '../systems/match';
 import type { MatchResult } from './PondScene';
 import { artUrl } from '../world/Art';
 import { esc, $ } from '../ui/html';
@@ -20,13 +19,15 @@ import { esc, $ } from '../ui/html';
 export class FinaleScene extends Phaser.Scene {
   private frogs?: AmbientFrogs;
   private root!: HTMLElement;
-  private result: MatchResult = { totals: [0, 0], ranks: [] };
+  private result: MatchResult = { ranks: [], seen: [] };
+  private colors: Record<string, string> = {};
   private step: 'results' | 'story' | 'end' = 'results';
   private deck?: CardDeck;
   constructor() { super('FinaleScene'); }
 
-  create(data: { result?: MatchResult }): void {
-    this.result = data.result ?? { totals: [0, 0], ranks: [] };
+  create(data: { result?: MatchResult; colors?: Record<string, string> }): void {
+    this.result = data.result ?? { ranks: [], seen: [] };
+    this.colors = data.colors ?? {};
     this.step = 'results'; this.deck = undefined;
     buildLevel(this, {
       key: 'terrain-title', width: 480, height: 280, palette: PALETTES.day,
@@ -48,7 +49,7 @@ export class FinaleScene extends Phaser.Scene {
         <h2>THANK YOU!</h2>
         <p>Save the ${esc(SPECIES.commonName.toLowerCase())}: never release pet frogs outdoors, and clean muddy boots before exploring new wild places.</p>
         <div class="mini-journal">${JOURNAL.map(card => `<button class="mini-entry" data-key="${card.key}"><span>${card.number}</span>${esc(card.rubric)}</button>`).join('')}</div>
-        <footer class="finale-foot"><button class="secondary" id="sources">Sources</button><button id="again-2">Play again ▸</button><button class="text-button" id="title">Title screen</button></footer>
+        <footer class="finale-foot"><button class="secondary" id="sources">Sources</button><button id="again-2">Play again ▸</button><button class="text-button" id="title">Home page</button></footer>
       </div>
       <div id="modal-slot"></div>
     </section>`);
@@ -56,7 +57,7 @@ export class FinaleScene extends Phaser.Scene {
     $(this.root, '#story').addEventListener('click', () => this.story());
     $(this.root, '#again').addEventListener('click', () => go(this, 'PondScene'));
     $(this.root, '#again-2').addEventListener('click', () => go(this, 'PondScene'));
-    $(this.root, '#title').addEventListener('click', () => go(this, 'MenuScene'));
+    $(this.root, '#title').addEventListener('click', () => { classHost.close(); location.hash = ''; location.reload(); });
     $(this.root, '#sources').addEventListener('click', () => this.sources());
     for (const button of this.root.querySelectorAll<HTMLButtonElement>('.mini-entry')) {
       button.addEventListener('click', () => {
@@ -75,35 +76,37 @@ export class FinaleScene extends Phaser.Scene {
 
   private renderPodium(): void {
     const podium = $(this.root, '#podium');
-    const { totals, ranks } = this.result;
-    const won = winner(totals);
-    const teams = `<div class="final-teams">${[0, 1].map(team => `<div class="rt team-${team} ${won === team ? 'is-winner' : ''}"><span>${TEAMS[team].name}</span><b>${totals[team]}</b></div>`).join('<i>vs</i>')}</div>`;
-    const headline = `<h2 class="final-headline">${won === -1 ? 'IT\'S A DRAW!' : `${esc(TEAMS[won].name.toUpperCase())} WINS!`}</h2>`;
+    const { ranks } = this.result;
+    const winner = ranks[0];
+    const headline = `<h2 class="final-headline">${winner ? `${esc(winner.name.toUpperCase())} WINS!` : 'THANKS FOR PLAYING!'}</h2>`;
     const places = [ranks[1], ranks[0], ranks[2]];
     const blocks = ranks.length ? `<div class="podium">${places.map((rank, column) => {
       const place = [2, 1, 3][column];
-      return rank ? `<div class="podium-col place-${place}" style="--delay:${[1.4, 2.8, 0][column]}s"><div class="podium-player"><img class="pixel" src="${artUrl('frog-down-0', 5)}" alt=""><b style="color:${TEAMS[rank.team].light}">${esc(rank.name)}</b><span>${rank.score} pts</span></div><div class="podium-block"><span>${place}</span></div></div>` : `<div class="podium-col place-${place} empty"></div>`;
+      return rank ? `<div class="podium-col place-${place}" style="--delay:${[1.4, 2.8, 0][column]}s"><div class="podium-player"><img class="pixel" src="${artUrl('frog-down-0', 5)}" alt="" style="filter:drop-shadow(0 0 0 ${this.colors[rank.id] ?? '#fff'}) drop-shadow(0 4px 0 ${this.colors[rank.id] ?? '#fff'})"><b>${esc(rank.name)}</b><span>${rank.score} pts</span></div><div class="podium-block" style="border-top:8px solid ${this.colors[rank.id] ?? '#fff'}"><span>${place}</span></div></div>` : `<div class="podium-col place-${place} empty"></div>`;
     }).join('')}</div>` : `<div class="solo-win"><img class="pixel" src="${artUrl('portrait', 4)}" alt=""></div>`;
-    podium.innerHTML = `${headline}${teams}${blocks}<div class="confetti" aria-hidden="true">${Array.from({ length: 40 }, (_, i) => `<i style="--x:${(i * 37) % 100}%;--d:${(i % 7) * .35}s;--c:${['#c94b3c', '#3f6fb5', '#d9a02a', '#4f8f3a', '#fff0b4'][i % 5]}"></i>`).join('')}</div>`;
+    const rest = ranks.slice(3, 10);
+    const list = rest.length ? `<ol class="final-list" start="4">${rest.map(rank => `<li><i class="dot" style="background:${this.colors[rank.id] ?? '#fff'}"></i>${esc(rank.name)}<em>${rank.score}</em></li>`).join('')}</ol>` : '';
+    podium.innerHTML = `${headline}${blocks}${list}<div class="confetti" aria-hidden="true">${Array.from({ length: 40 }, (_, i) => `<i style="--x:${(i * 37) % 100}%;--d:${(i % 7) * .35}s;--c:${['#c94b3c', '#3f6fb5', '#d9a02a', '#4f8f3a', '#fff0b4'][i % 5]}"></i>`).join('')}</div>`;
     sound.play('tick');
     this.time.delayedCall(1400, () => sound.play('catch', 2));
     this.time.delayedCall(2800, () => sound.play('victory'));
   }
 
-  /** The ten fact cards, back to back. */
+  /** The fact cards not shown yet (the ones after each round were already seen), back to back. */
   private story(): void {
     if (this.step !== 'results') return;
     this.step = 'story';
     sound.play('click');
     classHost.publish({ mode: 'learn', title: 'The real story' });
     $(this.root, '#results').hidden = true;
-    this.deck = showCards($(this.root, '#modal-slot'), JOURNAL, { onDone: () => this.end() });
+    const cards = JOURNAL.filter(card => !this.result.seen.includes(card.key));
+    this.deck = showCards($(this.root, '#modal-slot'), cards.length ? cards : JOURNAL, { onDone: () => this.end() });
   }
 
   private end(): void {
     this.step = 'end';
     this.deck = undefined;
-    classHost.publish({ mode: 'final', winner: winner(this.result.totals) });
+    classHost.publish({ mode: 'final' });
     $(this.root, '#end').hidden = false;
     sound.play('whoop');
     $(this.root, '#again-2').focus({ preventScroll: true });

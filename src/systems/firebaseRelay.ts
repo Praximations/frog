@@ -3,7 +3,7 @@ import {
   getDatabase, goOffline, goOnline, ref, get, set, update, remove, push, runTransaction, onDisconnect,
   onValue, onChildAdded, onChildChanged, type Database, type DataSnapshot, type Unsubscribe,
 } from '@firebase/database';
-import { cleanName, uniqueName, PLAYERS_PER_ROOM, REACTIONS } from '../../server/shared.mjs';
+import { cleanName, uniqueName, validAnswer, PLAYERS_PER_ROOM, REACTIONS } from '../../server/shared.mjs';
 import { FIREBASE_PROJECT } from './link';
 
 /**
@@ -17,7 +17,7 @@ import { FIREBASE_PROJECT } from './link';
  *   players/id {name, online}     written by each phone; the projector may fix the name
  *   inputs/id  {x, y, n}          each phone's joystick (n changes every send)
  *   inbox/id/* PrivateMessage     projector → one phone
- *   reactions/*{id, emoji}        phone → projector
+ *   events/*   {id, type, …}      phone → projector: reactions, quiz answers, "find me"
  *   kicked/id  true               projector removed this phone
  */
 type Message = { type: string; [key: string]: unknown };
@@ -81,7 +81,7 @@ abstract class FirebaseSocket extends EventTarget {
 class HostSocket extends FirebaseSocket {
   private code = '';
   private players = new Map<string, { name: string; online: boolean }>();
-  private lastReact = new Map<string, number>();
+  private lastEvent = new Map<string, number>();
   private path(sub = ''): string { return `rooms/${this.code}${sub ? `/${sub}` : ''}`; }
 
   protected async handle(message: Message): Promise<void> {
@@ -112,7 +112,7 @@ class HostSocket extends FirebaseSocket {
       onChildChanged(players, snapshot => this.player(snapshot)),
       onChildAdded(ref(this.db, this.path('inputs')), snapshot => this.input(snapshot)),
       onChildChanged(ref(this.db, this.path('inputs')), snapshot => this.input(snapshot)),
-      onChildAdded(ref(this.db, this.path('reactions')), snapshot => this.reaction(snapshot)),
+      onChildAdded(ref(this.db, this.path('events')), snapshot => this.event(snapshot)),
     );
     this.emit({ type: 'hosted', code: this.code });
   }
@@ -144,13 +144,19 @@ class HostSocket extends FirebaseSocket {
     if (value && this.players.has(id)) this.emit({ type: 'input', id, input: { x: round(value.x), y: round(value.y) } });
   }
 
-  private reaction(snapshot: DataSnapshot): void {
-    const value = snapshot.val() as { id?: unknown; emoji?: unknown } | null;
+  /** Reactions, quiz answers and "find me" taps, checked like the class server checks them. */
+  private event(snapshot: DataSnapshot): void {
+    const value = (snapshot.val() ?? {}) as { id?: unknown; type?: unknown; emoji?: unknown; q?: unknown; choice?: unknown };
     void remove(snapshot.ref);
-    const id = String(value?.id ?? '');
-    if (!this.players.has(id) || !REACTIONS.includes(String(value?.emoji)) || Date.now() - (this.lastReact.get(id) ?? 0) < 250) return;
-    this.lastReact.set(id, Date.now());
-    this.emit({ type: 'react', id, emoji: String(value!.emoji) });
+    const id = String(value.id ?? ''), type = String(value.type ?? '');
+    if (!this.players.has(id)) return;
+    const key = `${id}:${type}`, now = Date.now();
+    if (now - (this.lastEvent.get(key) ?? 0) < (type === 'ping' ? 1000 : 200)) return;
+    if (type === 'react' && REACTIONS.includes(String(value.emoji))) this.emit({ type: 'react', id, emoji: String(value.emoji) });
+    else if (type === 'answer' && validAnswer(value)) this.emit({ type: 'answer', id, q: value.q, choice: value.choice });
+    else if (type === 'ping') this.emit({ type: 'ping', id });
+    else return;
+    this.lastEvent.set(key, now);
   }
 
   private async kick(id: string, announce = true): Promise<void> {
@@ -174,7 +180,6 @@ class PlayerSocket extends FirebaseSocket {
   private state: unknown = { mode: 'lobby' };
   private gone = false;
   private sent = 0;
-  private lastReact = 0;
   private path(sub: string): string { return `rooms/${this.code}/${sub}`; }
 
   protected async handle(message: Message): Promise<void> {
@@ -183,10 +188,12 @@ class PlayerSocket extends FirebaseSocket {
     if (message.type === 'input') {
       const input = (message.input ?? {}) as { x?: unknown; y?: unknown };
       await set(ref(this.db, this.path(`inputs/${this.id}`)), { x: round(input.x), y: round(input.y), n: ++this.sent });
-    } else if (message.type === 'react') {
-      if (!REACTIONS.includes(String(message.emoji)) || Date.now() - this.lastReact < 250) return;
-      this.lastReact = Date.now();
-      await push(ref(this.db, this.path('reactions')), { id: this.id, emoji: String(message.emoji) });
+    } else if (message.type === 'react' && REACTIONS.includes(String(message.emoji))) {
+      await push(ref(this.db, this.path('events')), { id: this.id, type: 'react', emoji: String(message.emoji) });
+    } else if (message.type === 'answer' && validAnswer(message)) {
+      await push(ref(this.db, this.path('events')), { id: this.id, type: 'answer', q: message.q, choice: message.choice });
+    } else if (message.type === 'ping') {
+      await push(ref(this.db, this.path('events')), { id: this.id, type: 'ping' });
     }
   }
 

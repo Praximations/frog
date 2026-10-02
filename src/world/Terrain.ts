@@ -154,25 +154,35 @@ export function scatter(keys: string[], count: number, area: [number, number, nu
   return props;
 }
 
-/** The pond clearing used by the intro and the game (painted once, then cached as 'pond-day'). */
-export function pondTerrain(scene: Phaser.Scene): Phaser.GameObjects.Image {
-  if (!scene.textures.exists('pond-day')) {
-    scene.textures.addCanvas('pond-day', paintTerrain({
-      key: 'pond-day', width: 320, height: 180, palette: PALETTES.day, pathWidth: 6,
-      paths: [[[0, 118], [50, 110], [110, 120], [170, 108], [230, 118], [320, 110]], [[160, 40], [150, 80], [170, 108], [158, 150], [166, 180]]],
-      clearings: [[160, 105, 92, 46]], ponds: [[300, 36, 22, 9]],
+/**
+ * The pond clearing. The intro uses the screen-sized one (1280×720); the game uses a bigger one
+ * (1707×960) that the camera shows zoomed out, so about 30 frogs fit.
+ */
+export function pondTerrain(scene: Phaser.Scene, big = false): Phaser.GameObjects.Image {
+  const key = big ? 'pond-big' : 'pond-day';
+  const k = big ? 4 / 3 : 1;
+  const point = ([x, y]: Point): Point => [Math.round(x * k), Math.round(y * k)];
+  if (!scene.textures.exists(key)) {
+    scene.textures.addCanvas(key, paintTerrain({
+      key, width: Math.round(320 * k), height: Math.round(180 * k), palette: PALETTES.day, pathWidth: 6,
+      paths: [[[0, 118], [50, 110], [110, 120], [170, 108], [230, 118], [320, 110]], [[160, 40], [150, 80], [170, 108], [158, 150], [166, 180]]].map(path => (path as Point[]).map(point)),
+      clearings: [[160 * k, 105 * k, 92 * k * (big ? 1.25 : 1), 46 * k * (big ? 1.25 : 1)]],
+      ponds: [[300 * k, 36 * k, 22, 9]],
     }));
   }
-  return scene.add.image(0, 0, 'pond-day').setOrigin(0).setScale(SCALE).setDepth(-100);
+  return scene.add.image(0, 0, key).setOrigin(0).setScale(SCALE).setDepth(-100);
 }
 
 /** Trees around the edge of the pond clearing. */
-export function pondDecor(scene: Phaser.Scene): Phaser.GameObjects.Image[] {
+export function pondDecor(scene: Phaser.Scene, big = false): Phaser.GameObjects.Image[] {
+  const k = big ? 4 / 3 : 1;
+  const width = 1280 * k, height = 720 * k;
   const decor: Phaser.GameObjects.Image[] = [];
   const place = (key: string, x: number, y: number, scale = 4) => { decor.push(scene.add.image(x, y, key).setOrigin(.5, .9).setScale(scale).setDepth(y)); };
-  for (let x = -20; x < 1320; x += 105) place(x % 2 ? 'tree' : 'palm', x + (x * 7) % 30, 150 + (x % 3) * 8);
-  for (let x = 10; x < 1320; x += 120) place(x % 3 ? 'tree' : 'bush', x, 885);
-  for (let y = 260; y < 700; y += 125) { place('tree', 14, y); place('tree', 1268, y + 40); }
-  for (const [x, y] of [[250, 250], [1030, 600], [380, 650], [900, 240], [560, 210], [720, 660]]) place(x % 2 ? 'flower' : 'fern', x, y);
+  for (let x = -20; x < width + 40; x += 105) place(x % 2 ? 'tree' : 'palm', x + (x * 7) % 30, 150 + (x % 3) * 8);
+  for (let x = 10; x < width + 40; x += 120) place(x % 3 ? 'tree' : 'bush', x, height + 165);
+  for (let y = 260; y < height - 20; y += 125) { place('tree', 14, y); place('tree', width - 12, y + 40); }
+  const flowers: [number, number][] = big ? [[330, 330], [1370, 800], [500, 860], [1200, 320], [750, 290], [960, 880], [260, 600], [1450, 560]] : [[250, 250], [1030, 600], [380, 650], [900, 240], [560, 210], [720, 660]];
+  for (const [x, y] of flowers) place(x % 2 ? 'flower' : 'fern', x, y);
   return decor;
 }

@@ -30,9 +30,10 @@ Facts were checked on 2 October 2026. Every fact card lists the sources it uses 
 
 ## What is a game choice, not a fact
 
-- **Points and team scores** are only for the game. Real numbers appear only on the fact cards and in the intro and jump-scare captions.
+- **Points** are only for the game. Real numbers appear on the fact cards, in the quiz answers and in the intro and jump-scare captions.
 - **The intro gag** (the frog eating a chicken) is a cartoon joke about the name. It isn't made up from nothing: mountain chickens do sometimes eat birds (diet study above), but not farm chickens.
-- **The game** is a way to *experience* the topics, not a simulation: you're a predator eating bugs (niche), and hunters, flashlights and cage traps stand for hunting (a major threat). The cage traps are a game idea. The projector's jump-scare caption states only the sourced fact ("People once hunted up to 36,000 of these frogs a year").
+- **The rounds** are a way to *experience* the threats, not a simulation. You're a predator eating bugs (niche); feral pigs (invasive animals), hunters with flashlights (hunting) and chytrid fungus clouds (disease) are the real threats; the warm pools stand for the real solar-heated pools (above 30 °C chytrid can't survive). Cage traps, boosts and the dark cave are game ideas.
+- **Quiz answers** that are wrong on purpose include made-up names (such as *Gallus montanus*); every right answer and every fact after it comes from the sources above.
 - Exactly how chytrid reached Dominica isn't known. The six-degrees card says only what the 2018 study supports: chytrid spread worldwide with the global amphibian trade. The bonus chain says "storms like Hurricane Maria" rather than claiming climate change caused that one storm.
 - The pond, pools and map are illustrations, not a depiction of a specific place or facility. The island map is approximate.
 

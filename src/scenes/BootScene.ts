@@ -8,6 +8,6 @@ export class BootScene extends Phaser.Scene {
     // Fonts are bundled with the game; wait before drawing canvas text.
     void Promise.all([document.fonts.load('16px "Pixelify"'), document.fonts.load('16px "PressStart"')])
       .catch(() => undefined)
-      .then(() => this.scene.start('MenuScene'));
+      .then(() => this.scene.start('IntroScene'));
   }
 }

@@ -1,6 +1,5 @@
 import type { PhoneState, PrivateMessage } from './ClassHost';
 import { openLink, type Link } from './link';
-import type { Team } from './match';
 
 type Listener = (message?: PrivateMessage) => void;
 const STORE = 'mountain-chicken-player';
@@ -14,7 +13,9 @@ class ClassPlayer {
   error = '';
   ended = false;
   state: PhoneState = { mode: 'lobby' };
-  team: Team | null = null;
+  /** Your frog's colour on the big screen. */
+  color = '';
+  colorName = '';
   score = 0;
   final?: Extract<PrivateMessage, { kind: 'final' }>;
   private token = '';
@@ -74,9 +75,9 @@ class ClassPlayer {
           this.state = message.state; this.emit();
         } else if (message.type === 'private') {
           const data = message.data as PrivateMessage;
-          if (data.kind === 'you') this.team = data.team;
+          if (data.kind === 'you') { this.name = data.name; this.color = data.color; this.colorName = data.colorName; }
           if (data.kind === 'score') this.score = data.score;
-          if (data.kind === 'final') { this.final = data; this.score = data.score; this.team = data.team; }
+          if (data.kind === 'final') { this.final = data; this.score = data.score; }
           this.emit(data);
         } else if (message.type === 'kicked' || message.type === 'ended') {
           this.ended = true;
@@ -98,6 +99,9 @@ class ClassPlayer {
   private send(value: unknown): void { if (this.socket?.readyState === WebSocket.OPEN) this.socket.send(JSON.stringify(value)); }
   steer(x: number, y: number): void { this.send({ type: 'input', input: { x, y } }); }
   react(emoji: string): void { this.send({ type: 'react', emoji }); }
+  answer(q: string, choice: number): void { this.send({ type: 'answer', q, choice }); }
+  /** Makes your frog jump and flash on the big screen. */
+  ping(): void { this.send({ type: 'ping' }); }
 
   close(forget = true): void {
     this.generation++;

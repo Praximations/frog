@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
-import { TEAMS, addPoints, type Team } from '../systems/match';
+import { addPoints, textOn } from '../systems/match';
+import type { BoostKind } from '../data/game';
 
-export type Control = 'phone' | 'arrows' | 'wasd' | 'bot';
+export type Control = 'phone' | 'bot';
 type Facing = 'down' | 'up' | 'left' | 'right';
 
 const SIZE = 3.4;
@@ -22,11 +23,22 @@ export class PartyFrog {
   readonly shadow: Phaser.GameObjects.Image;
   readonly ring: Phaser.GameObjects.Ellipse;
   readonly tag: Phaser.GameObjects.Text;
+  /** Small icon next to the name while a boost is active. */
+  readonly badge: Phaser.GameObjects.Image;
   x: number;
   y: number;
   input = { x: 0, y: 0 };
   score = 0;
+  roundScore = 0;
   online = true;
+  /** Boost name → when it runs out. */
+  boosts = new Map<BoostKind, number>();
+  /** Caught chytrid fungus: slow, can't eat, until it reaches a warm pool. */
+  sick = false;
+  /** Can't get sick again until this time (just cured). */
+  immuneUntil = 0;
+  /** Last time this player got the cave scare. */
+  caveAt = -Infinity;
   /** Can't move until this time (caught, scared). */
   frozenUntil = 0;
   /** Can't be caught again until this time. */
@@ -47,15 +59,20 @@ export class PartyFrog {
   private capturedTo: { x: number; y: number } | null = null;
   private home = { x: 0, y: 0 };
   private dropAt = -9999;
+  private pingAt = -9999;
+  private dropHeight = 380;
+  private hidden = false;
 
-  constructor(private readonly scene: Phaser.Scene, readonly id: string, public name: string, public team: Team, readonly control: Control, x: number, y: number) {
+  constructor(private readonly scene: Phaser.Scene, readonly id: string, public name: string, public color: string, readonly control: Control, x: number, y: number) {
     this.x = x; this.y = y;
-    this.ring = scene.add.ellipse(x, y + 12, 78, 26).setStrokeStyle(5, TEAMS[team].hex, 1).setFillStyle(TEAMS[team].hex, .3);
+    const hex = Phaser.Display.Color.HexStringToColor(color).color;
+    this.ring = scene.add.ellipse(x, y + 12, 84, 28).setStrokeStyle(6, hex, 1).setFillStyle(hex, .35);
     this.shadow = scene.add.image(x, y + 12, 'frog-shadow').setScale(2.6).setAlpha(.45);
     this.sprite = scene.add.image(x, y, 'frog-down-0').setScale(SIZE).setOrigin(.5, FEET);
-    this.tag = scene.add.text(x, y - 52, name, { fontFamily: 'Pixelify', fontSize: '17px', color: '#fffbea', backgroundColor: TEAMS[team].color, padding: { x: 6, y: 1 } }).setOrigin(.5).setDepth(4000);
-    this.tag.setStroke('#2a2018', 3);
-    if (control === 'bot') this.tag.setAlpha(.75);
+    this.tag = scene.add.text(x, y - 56, name, { fontFamily: 'Pixelify', fontSize: '24px', fontStyle: 'bold', color: textOn(color), backgroundColor: color, padding: { x: 7, y: 1 } }).setOrigin(.5).setDepth(4000);
+    this.tag.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
+    this.badge = scene.add.image(x, y, 'boost-speed').setScale(2.4).setDepth(4001).setVisible(false);
+    if (control === 'bot') this.tag.setAlpha(.7);
     this.draw(0, 1, 1, 0);
   }
 
@@ -67,13 +84,15 @@ export class PartyFrog {
   /** Where the tongue comes out. */
   mouth(): { x: number; y: number } { const [dx, dy] = MOUTH[this.facing]; return { x: this.x + dx, y: this.y + dy }; }
 
-  setTeam(team: Team): void {
-    this.team = team;
-    this.ring.setStrokeStyle(5, TEAMS[team].hex, 1).setFillStyle(TEAMS[team].hex, .3);
-    this.tag.setBackgroundColor(TEAMS[team].color);
-  }
-
   rename(name: string): void { this.name = name; this.tag.setText(name); }
+
+  boosted(kind: BoostKind, now: number): boolean { return (this.boosts.get(kind) ?? 0) > now; }
+
+  /** "Find me": a big jump, and the ring and name flash for two seconds. */
+  ping(now: number): void { this.pingAt = now; if (this.canAct(now)) this.drop(now, 120); }
+
+  /** Inside the cave: invisible until `until`, then it tumbles back out. */
+  hide(hidden: boolean): void { this.hidden = hidden; }
 
   /** Returns the points actually changed (never below zero). */
   addPoints(points: number): number {
@@ -84,8 +103,8 @@ export class PartyFrog {
 
   teleport(x: number, y: number): void { this.x = x; this.y = y; this.hopT = 0; }
 
-  /** Falls in from above and lands with a splat (joining, or coming back after being caught). */
-  drop(now: number): void { this.dropAt = now; this.hopT = 0; }
+  /** Falls in from above and lands with a splat (joining, coming back after being caught, "find me"). */
+  drop(now: number, height = 380): void { this.dropAt = now; this.dropHeight = height; this.hopT = 0; }
 
   /** Snap the tongue out at a bug. */
   lick(x: number, y: number, now: number): void {
@@ -112,7 +131,7 @@ export class PartyFrog {
     const frozen = now < this.frozenUntil;
     const direction = frozen ? new Phaser.Math.Vector2() : new Phaser.Math.Vector2(this.input.x, this.input.y).limit(1);
     const moving = direction.lengthSq() > 0.01;
-    const pace = speed * (this.isBot ? .72 : 1);
+    const pace = speed * (this.isBot ? .72 : 1) * (this.boosted('speed', now) ? 1.5 : 1) * (this.sick ? .55 : 1);
     this.x = Phaser.Math.Clamp(this.x + direction.x * pace * delta / 1000, bounds.left, bounds.right);
     this.y = Phaser.Math.Clamp(this.y + direction.y * pace * delta / 1000, bounds.top, bounds.bottom);
     if (moving && now - this.lickAt > LICK_OUT + LICK_BACK) this.facing = Math.abs(direction.x) > Math.abs(direction.y) ? direction.x > 0 ? 'right' : 'left' : direction.y > 0 ? 'down' : 'up';
@@ -128,7 +147,7 @@ export class PartyFrog {
     let lift = 0, air = 0;
     const dropT = (now - this.dropAt) / 420;
     if (dropT >= 0 && dropT < 1) {
-      lift = (1 - dropT) ** 2 * 380; air = 1 - dropT;
+      lift = (1 - dropT) ** 2 * this.dropHeight; air = 1 - dropT;
     } else if (dropT >= 1 && dropT < 1.1 && this.squash < .5) {
       this.squash = 1.5; this.onLand?.(this.x, this.y + 14, true);
     } else if (this.hopT > 0) {
@@ -150,7 +169,17 @@ export class PartyFrog {
     this.draw(lift, sx, sy, air);
 
     const blink = now < this.safeUntil && Math.floor(now / 120) % 2 === 0;
-    this.sprite.setAlpha(blink ? .45 : 1).clearTint();
+    this.sprite.setAlpha(this.hidden ? 0 : blink ? .45 : 1);
+    if (this.sick) this.sprite.setTint(0x9fe07a); else if (this.boosted('shield', now)) this.sprite.setTint(0xb8ffb0); else this.sprite.clearTint();
+    // "Find me": the ring pulses and grows, the name tag bounces.
+    const pinged = now - this.pingAt < 2200;
+    const pulse = pinged ? 1 + .5 * Math.abs(Math.sin((now - this.pingAt) / 160)) : 1;
+    this.ring.setScale(pulse).setAlpha(this.hidden ? 0 : 1);
+    this.tag.setScale(pinged ? 1.25 : 1).setAlpha(this.hidden ? 0 : this.isBot ? .7 : 1);
+    this.shadow.setAlpha(this.hidden ? 0 : this.shadow.alpha);
+    const active = [...this.boosts].find(([, until]) => until > now);
+    this.badge.setVisible(!!active && !this.hidden);
+    if (active) this.badge.setTexture(`boost-${active[0]}`).setPosition(this.x + this.tag.width / 2 * this.tag.scaleX + 14, this.tag.y);
   }
 
   /** The tongue: out to the bug, then back with it. */
@@ -194,14 +223,15 @@ export class PartyFrog {
     this.sprite.setVisible(true).setPosition(this.x + shake, this.y + FEET_OFFSET - lift).setScale(SIZE * sx, SIZE * sy).setDepth(this.y + 1);
     this.shadow.setVisible(true).setPosition(this.x, this.y + 12).setDepth(this.y - 2).setScale(2.6 * (1 - .3 * air), 2.6 * (1 - .3 * air)).setAlpha(.45 * (1 - .4 * air));
     this.ring.setVisible(true).setPosition(this.x, this.y + 13).setDepth(this.y - 1);
-    this.tag.setPosition(this.x, this.y - 54 - lift * .6);
+    this.tag.setPosition(this.x, this.y - 60 - lift * .6);
   }
 
   setVisible(visible: boolean): void {
     for (const part of [this.sprite, this.shadow, this.ring, this.tag]) part.setVisible(visible);
+    if (!visible) this.badge.setVisible(false);
   }
 
   destroy(): void {
-    for (const part of [this.sprite, this.shadow, this.ring, this.tag]) part.destroy();
+    for (const part of [this.sprite, this.shadow, this.ring, this.tag, this.badge]) part.destroy();
   }
 }

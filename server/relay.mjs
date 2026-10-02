@@ -1,7 +1,7 @@
 import { randomBytes, randomInt } from 'node:crypto';
 import { networkInterfaces } from 'node:os';
 import { WebSocketServer, WebSocket } from 'ws';
-import { cleanName, uniqueName, NAME_LENGTH, PLAYERS_PER_ROOM, REACTIONS } from './shared.mjs';
+import { cleanName, uniqueName, validAnswer, NAME_LENGTH, PLAYERS_PER_ROOM, REACTIONS } from './shared.mjs';
 
 export { cleanName, REACTIONS };
 
@@ -11,7 +11,7 @@ export { cleanName, REACTIONS };
  * and forwards.
  */
 export const LIMITS = { rooms: 30, playersPerRoom: PLAYERS_PER_ROOM, clients: 600, nameLength: NAME_LENGTH, stateBytes: 3000, privateBytes: 1000 };
-export const MODES = ['lobby', 'learn', 'intro', 'round', 'results', 'final', 'paused'];
+export const MODES = ['lobby', 'intro', 'round', 'quiz', 'reveal', 'results', 'learn', 'final', 'paused'];
 
 const send = (socket, value) => { if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(value)); };
 const jsonSize = value => { try { return JSON.stringify(value).length; } catch { return Infinity; } };
@@ -44,7 +44,7 @@ export function attachRelay(http, { path = '/session' } = {}) {
 
   wss.on('connection', socket => {
     socket.alive = true;
-    let windowStart = Date.now(), messages = 0, joins = 0, lastReact = 0;
+    let windowStart = Date.now(), messages = 0, joins = 0, lastReact = 0, lastPing = 0, lastAnswer = 0;
     socket.on('error', () => {});
     socket.on('pong', () => { socket.alive = true; });
     socket.on('message', data => {
@@ -120,6 +120,16 @@ export function attachRelay(http, { path = '/session' } = {}) {
         if (!REACTIONS.includes(message.emoji) || Date.now() - lastReact < 250) return;
         lastReact = Date.now();
         send(room.host, { type: 'react', id, emoji: message.emoji });
+      } else if (message.type === 'answer') {
+        // A quiz answer: the host keeps only the first one per question.
+        if (!validAnswer(message) || Date.now() - lastAnswer < 200) return;
+        lastAnswer = Date.now();
+        send(room.host, { type: 'answer', id, q: message.q, choice: message.choice });
+      } else if (message.type === 'ping') {
+        // "Find me": the host makes this player's frog jump and flash.
+        if (Date.now() - lastPing < 1000) return;
+        lastPing = Date.now();
+        send(room.host, { type: 'ping', id });
       }
     });
 

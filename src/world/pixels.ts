@@ -364,6 +364,33 @@ function drawShock(ctx: Context): void {
   line(ctx, '#4a524a', 24, 22, 27, 30); line(ctx, '#4a524a', 38, 26, 35, 33); line(ctx, '#4a524a', 12, 46, 9, 54);
 }
 
+/** The dark cave: a mossy rock mound with a pitch-black mouth and a warning sign. */
+function drawCave(ctx: Context): void {
+  oval(ctx, '#00000040', 30, 37, 29, 4);
+  oval(ctx, '#3a3a34', 30, 24, 28, 15); oval(ctx, '#55554c', 29, 21, 25, 12); oval(ctx, '#6e6e62', 26, 16, 16, 7);
+  speckle(ctx, ['#3a3a34', '#85857a', '#4a6a3a'], 4, 8, 52, 26, 22, 7);
+  oval(ctx, '#4f7a3a', 18, 10, 9, 3); oval(ctx, '#6a9a4a', 40, 9, 7, 2); // moss
+  oval(ctx, '#0a0a0a', 30, 30, 11, 9); oval(ctx, '#000000', 30, 31, 9, 8); rect(ctx, '#000000', 21, 31, 19, 8);
+  rect(ctx, '#ff2a1a', 26, 28, 2, 1); rect(ctx, '#ff2a1a', 33, 28, 2, 1); // eyes in the dark
+}
+
+function drawSign(ctx: Context): void {
+  rect(ctx, '#5a3a20', 9, 9, 3, 12);
+  rect(ctx, '#3d2416', 0, 0, 21, 11); rect(ctx, '#c9874f', 1, 1, 19, 9);
+  rect(ctx, '#7a1a10', 3, 3, 15, 1); rect(ctx, '#7a1a10', 3, 5, 11, 1); rect(ctx, '#7a1a10', 3, 7, 13, 1);
+}
+
+/** Boost pickups: 12×12 icons on a round badge. */
+function drawBoost(ctx: Context, kind: string): void {
+  const badge: Record<string, [string, string]> = { speed: ['#2a6ad8', '#6aa8ff'], tongue: ['#c43a6a', '#ff8ab0'], double: ['#c08a10', '#ffd84a'], shield: ['#2f7a2a', '#7ad04a'] };
+  const [dark, light] = badge[kind];
+  oval(ctx, '#1d1712', 7, 7, 7, 7); oval(ctx, dark, 7, 7, 6, 6); oval(ctx, light, 6, 5, 4, 3);
+  if (kind === 'speed') { for (const [x, y, w] of [[8, 2, 2], [7, 3, 2], [6, 4, 2], [5, 5, 5], [7, 6, 2], [6, 7, 2], [5, 8, 2], [4, 9, 2]]) rect(ctx, '#fff6b0', x, y, w, 1); rect(ctx, '#fff6b0', 5, 10, 1, 1); }
+  else if (kind === 'tongue') { rect(ctx, '#ffffff', 3, 6, 6, 2); oval(ctx, '#ffffff', 10, 7, 2, 2); rect(ctx, '#8a2a3a', 3, 7, 6, 1); }
+  else if (kind === 'double') { for (const [x, y] of [[3, 4], [4, 5], [5, 6], [6, 7], [7, 8], [7, 4], [6, 5], [4, 7], [3, 8]]) rect(ctx, '#ffffff', x, y, 1, 1); rect(ctx, '#ffffff', 9, 4, 2, 1); rect(ctx, '#ffffff', 10, 5, 1, 1); rect(ctx, '#ffffff', 9, 6, 2, 1); rect(ctx, '#ffffff', 9, 7, 1, 1); rect(ctx, '#ffffff', 9, 8, 3, 1); }
+  else { for (let y = 3; y < 11; y++) { const half = Math.round(Math.sin((y - 3) / 7 * Math.PI) * 3) + 1; rect(ctx, '#d4ffa0', 7 - half, y, half * 2, 1); } rect(ctx, '#2f5a22', 7, 3, 1, 8); }
+}
+
 // ---------------------------------------------------------------- six degrees icons (16×16)
 
 function drawIcon(ctx: Context, kind: string): void {
@@ -430,6 +457,12 @@ export const simple: Record<string, [number, number, Draw]> = {
   chicken: [24, 22, ctx => drawChicken(ctx, 0)], 'chicken-1': [24, 22, ctx => drawChicken(ctx, 1)],
   'chicken-2': [24, 22, ctx => drawChicken(ctx, 2)], 'chicken-3': [24, 22, ctx => drawChicken(ctx, 3)],
   feather: [6, 4, drawFeather],
+  cave: [60, 42, drawCave],
+  sign: [21, 21, drawSign],
+  'boost-speed': [14, 14, ctx => drawBoost(ctx, 'speed')], 'boost-tongue': [14, 14, ctx => drawBoost(ctx, 'tongue')],
+  'boost-double': [14, 14, ctx => drawBoost(ctx, 'double')], 'boost-shield': [14, 14, ctx => drawBoost(ctx, 'shield')],
+  spore: [3, 3, ctx => { rect(ctx, '#a6f06a', 0, 0, 3, 3); rect(ctx, '#e4ffb0', 1, 1, 1, 1); }],
+  steam: [6, 6, ctx => { oval(ctx, '#ffffffaa', 3, 3, 2, 2); rect(ctx, '#ffffff', 2, 2, 1, 1); }],
   phone: [12, 18, ctx => {
     rect(ctx, '#2a2420', 0, 0, 12, 18); rect(ctx, '#95d06a', 1, 2, 10, 13); rect(ctx, '#4a4440', 5, 16, 2, 1);
     oval(ctx, '#fff1cb', 6, 8, 3, 3); oval(ctx, '#4f8f3a', 7, 7, 1, 1);
