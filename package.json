@@ -12,9 +12,14 @@
     "host": "npm run build && node server/index.mjs",
     "test": "npm run test:connection && npm run test:game",
     "test:connection": "node --test server/session.test.mjs",
-    "test:game": "node --experimental-strip-types --test tests/*.test.mjs"
+    "test:game": "node --experimental-strip-types --test tests/*.test.mjs",
+    "deploy": "npm run build && npx -y firebase-tools@latest deploy --only hosting,database",
+    "firebase:login": "npx -y firebase-tools@latest login",
+    "firebase:emulators": "npx -y firebase-tools@latest emulators:start --only database"
   },
   "dependencies": {
+    "@firebase/app": "0.16.2",
+    "@firebase/database": "1.1.5",
     "phaser": "^3.90.0",
     "qrcode-generator": "^2.0.4",
     "ws": "^8.18.0"

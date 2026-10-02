@@ -438,7 +438,7 @@ export class PondScene extends Phaser.Scene {
         ${classHost.joinLink ? `<div class="qr" aria-label="QR code to join">${qrSvg(classHost.joinLink)}</div>` : ''}
       </div>`);
     } else {
-      this.renderCenter(`<div class="join-sign is-offline"><div class="js-text"><span>${classHost.available === null ? 'Opening the pond…' : 'Phones can\'t join here'}</span><b class="js-address">Play on this keyboard: <kbd>ARROWS</kbd> + <kbd>WASD</kbd></b><small>For phones, start the game with <code>npm run host</code>.</small></div></div>`);
+      this.renderCenter(`<div class="join-sign is-offline"><div class="js-text"><span>${classHost.available === null ? 'Opening the pond…' : 'Phones can\'t join here'}</span><b class="js-address">Play on this keyboard: <kbd>ARROWS</kbd> + <kbd>WASD</kbd></b>${classHost.available === null ? '' : `<small>${classHost.kind === 'firebase' ? esc(classHost.error) : 'For phones, start the game with <code>npm run host</code>.'}</small>`}</div></div>`);
     }
     this.renderBottom(`${rulesHtml(true)}<button class="start-button" id="start">START ▸</button>`);
     $(this.root, '#start').addEventListener('click', () => this.startMatch());

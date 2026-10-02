@@ -1,4 +1,5 @@
 import { classPlayer } from '../systems/ClassPlayer';
+import { REACTIONS } from '../../server/shared.mjs';
 import type { PrivateMessage } from '../systems/ClassHost';
 import { TEAMS } from '../systems/match';
 import { sound } from '../systems/Sound';
@@ -6,7 +7,6 @@ import { artUrl } from '../world/pixels';
 import { rulesHtml } from '../ui/rules';
 import { esc, $ } from '../ui/html';
 
-const REACTIONS = ['🐸', '❤️', '😱', '👏', '🔥', '🦗'];
 const ADJECTIVES = ['Sneaky', 'Giant', 'Brave', 'Sleepy', 'Speedy', 'Muddy', 'Mighty', 'Jolly', 'Quiet', 'Lucky', 'Bouncy', 'Soggy'];
 const NOUNS = ['Cricket', 'Tadpole', 'Crapaud', 'Froglet', 'Beetle', 'Gecko', 'Snail', 'Fern', 'Crab', 'Firefly'];
 const buzz = (pattern: number | number[]) => { try { navigator.vibrate?.(pattern); } catch { /* optional */ } };

@@ -1,4 +1,5 @@
 import type { Team } from './match';
+import { openLink, type Link, type LinkKind } from './link';
 
 /**
  * What phones are told to show. The relay forwards this object unchanged.
@@ -23,8 +24,6 @@ export interface ClassPlayerInfo { id: string; name: string; online: boolean }
 type Listener = (event: { type: 'join' | 'leave' | 'removed' | 'status'; id?: string }) => void;
 type ReactHandler = (value: { id: string; name: string; emoji: string }) => void;
 
-export const socketUrl = (): string => `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/session`;
-
 /** The projector's side of class mode: join code, roster and every phone's joystick. */
 class ClassHost {
   code = '';
@@ -34,6 +33,10 @@ class ClassHost {
   error = '';
   joinAddress = '';
   players = new Map<string, ClassPlayerInfo>();
+  /** Class server or Firebase, once connected. */
+  kind: LinkKind = 'server';
+  private generation = 0;
+  private opening = false;
   private inputs = new Map<string, { x: number; y: number; at: number }>();
   private socket?: WebSocket;
   private listeners = new Set<Listener>();
@@ -43,21 +46,29 @@ class ClassHost {
   onReact(handler: ReactHandler): () => void { this.reactHandlers.add(handler); return () => this.reactHandlers.delete(handler); }
   private emit(type: 'join' | 'leave' | 'removed' | 'status', id?: string): void { this.listeners.forEach(listener => listener({ type, id })); }
 
-  /** Creates a room if a class server is reachable; otherwise the game runs on this computer only. */
+  /** Creates a room if a class server (or Firebase) is reachable; otherwise the game runs on this computer only. */
   async open(): Promise<void> {
-    if (this.connected || this.socket) return;
+    if (this.connected || this.socket || this.opening) return;
     this.error = '';
-    const socket = new WebSocket(socketUrl());
-    this.socket = socket;
+    this.opening = true;
+    const generation = ++this.generation;
+    let link: Link;
+    try { link = await openLink('host'); }
+    catch { this.opening = false; this.available = false; this.error = 'No class server here.'; this.emit('status'); return; }
+    this.opening = false;
+    if (generation !== this.generation) { link.socket.close(); return; } // closed while connecting
+    const { socket, kind } = link;
+    this.socket = socket; this.kind = kind;
+    const unreachable = kind === 'firebase' ? 'Phones can\'t join yet: the Firebase Realtime Database isn\'t set up (see README).' : 'No class server here.';
     await new Promise<void>(resolve => {
       let settled = false;
       const finish = () => { if (!settled) { settled = true; clearTimeout(timeout); resolve(); } };
-      const timeout = window.setTimeout(() => { this.fail(socket, 'No class server here.'); socket.close(); finish(); }, 5000);
+      const timeout = window.setTimeout(() => { this.fail(socket, unreachable); socket.close(); finish(); }, kind === 'firebase' ? 12000 : 5000);
       socket.addEventListener('open', () => socket.send(JSON.stringify({ type: 'host' })));
-      socket.addEventListener('error', () => { this.fail(socket, 'No class server here.'); finish(); });
+      socket.addEventListener('error', () => { this.fail(socket, unreachable); finish(); });
       socket.addEventListener('close', () => {
         if (this.socket !== socket) return;
-        this.fail(socket, this.connected ? 'Lost the class server. Phones can no longer join; the game keeps running.' : 'No class server here.');
+        this.fail(socket, this.connected ? 'Lost the connection. Phones can no longer join; the game keeps running.' : unreachable);
         finish();
       });
       socket.addEventListener('message', event => {
@@ -68,6 +79,7 @@ class ClassHost {
         if (message.type === 'hosted' || message.type === 'error') finish();
       });
     });
+    if (!this.connected && this.socket === socket) { this.fail(socket, kind === 'firebase' ? unreachable : this.error || unreachable); socket.close(); }
     if (this.connected) await this.findJoinAddress();
     this.emit('status');
   }
@@ -138,6 +150,7 @@ class ClassHost {
   kick(id: string): void { this.send({ type: 'kick', id }); this.players.delete(id); this.inputs.delete(id); this.emit('removed', id); }
 
   close(): void {
+    this.generation++; this.opening = false;
     const socket = this.socket; this.socket = undefined;
     socket?.close();
     this.connected = false; this.code = ''; this.players.clear(); this.inputs.clear(); this.available = null;

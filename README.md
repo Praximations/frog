@@ -12,17 +12,45 @@ It's **Team Dominica vs Team Montserrat**, the frog's two home islands. Most poi
 
 ## Run it in class
 
-Requires Node.js 22.12+.
+There are two ways. **Firebase is easier in class**: it's a normal website, so phones can join over any Wi-Fi or mobile data.
+
+### Option A: online with Firebase (project `frog-94c78`)
+
+One-time setup (about 5 minutes, free, no credit card):
+
+1. Go to [console.firebase.google.com](https://console.firebase.google.com), open the **Frog** project, then **Build → Realtime Database → Create Database**. Pick **United States (us-central1)** and **Start in locked mode**. (The game uploads its own database rules when you deploy.)
+2. On your computer (needs [Node.js 22.12+](https://nodejs.org)), in this folder:
+
+   ```sh
+   npm install
+   npm run firebase:login
+   ```
+
+   This opens a browser so you can sign in with the Google account that owns the project.
+
+To put the game online (and again after any change):
+
+```sh
+npm run deploy
+```
+
+Then open **https://frog-94c78.web.app** on the projector and press **PLAY**. Classmates scan the QR code or go to the same address and type the code.
+
+- The free Spark plan is enough (up to 100 phones at once).
+- If you skipped step 1, the game still works with keyboards, and the lobby says the database isn't set up.
+
+### Option B: from your laptop with `npm run host`
 
 ```sh
 npm install
 npm run host
 ```
 
-Leave that terminal open. On the projector laptop, open **http://localhost:3000** and press **PLAY**.
+Leave that terminal open. On the projector laptop, open **http://localhost:3000** and press **PLAY**. Phones must be on the **same Wi-Fi** as the laptop. Many school networks block this; a phone hotspot usually works.
 
-- Phones must be on the **same Wi-Fi** as the laptop. Many school networks block this. If phones can't connect, put the laptop and phones on a phone hotspot.
-- No phones? Two people can play on the laptop with **ARROWS** and **WASD**, and computer "Wild Frogs" fill any team with fewer than two players. This also works on `npm run dev`, a static host or an offline copy.
+### No phones?
+
+Two people can play on the laptop with **ARROWS** and **WASD**, and computer "Wild Frogs" fill any team with fewer than two players. This works everywhere, even offline.
 
 ## The 10-minute run sheet
 
@@ -75,7 +103,7 @@ The title screen's **FACT CARDS** button opens the cards any time (so you can pr
 | Esc | Presenter menu: Resume, End game now, Back to lobby, Fact cards, Sound and Jump-scare switches, Quit to title |
 | J | Fact cards (in the lobby) |
 
-Phones download a tiny page (about 50 KB, no game engine). A phone that locks or drops rejoins with the same frog and points. During the cards, phones show reaction buttons (🐸 ❤️ 😱 👏 🔥 🦗) that float up the projector.
+Phones download a small page (about 50 KB, plus about 50 KB more on Firebase; no game engine). A phone that locks or drops rejoins with the same frog and points. During the cards, phones show reaction buttons (🐸 ❤️ 😱 👏 🔥 🦗) that float up the projector.
 
 ## Development
 
@@ -85,9 +113,10 @@ npm run dev:class  # dev server that phones on the same Wi-Fi can join
 npm run build      # type-check + production build into dist/
 npm run preview    # serve the build (phones can join from this computer)
 npm test           # class-server tests + content, rubric and team-logic tests
+npm run deploy     # build and upload to Firebase Hosting (plus the database rules)
 ```
 
-`dist/` also works on a static host (such as Firebase Hosting) or offline, with laptop players and computer frogs. Phone joining needs `server/index.mjs` (or any Node host with WebSockets) serving the build. Everything is local: fonts, art (drawn in code) and sound (synthesized with Web Audio).
+Phones and the projector talk through one of two links with the same messages: the class server (`server/relay.mjs`, used by `npm run host` and `npm run dev`) or, on Firebase Hosting, the Firebase Realtime Database (`src/systems/firebaseRelay.ts`, downloaded only there). On any other static host the game runs with keyboards and computer frogs. To try the Firebase link locally, start the database emulator (`npm run firebase:emulators`) and build with `VITE_FIREBASE_DATABASE_URL="http://127.0.0.1:9000/?ns=frog-94c78-default-rtdb"`. Everything else is local: fonts, art (drawn in code) and sound (synthesized with Web Audio).
 
 ### Architecture
 
@@ -103,12 +132,16 @@ src/
   play/PondGame.ts        The game itself: bugs and licking, hunters, traps, events, computer frogs
   entities/               PartyFrog (a player's frog and its animation), Critters (bugs, decorative frogs)
   phone/PhoneApp.ts       Join screen, joystick, caught scare and the secret scare
-  systems/                ClassHost / ClassPlayer (networking), match (teams, totals, ranking), Sound, Settings
+  systems/                ClassHost / ClassPlayer (networking), link + firebaseRelay (class server or Firebase),
+                          match (teams, totals, ranking), Sound, Settings
   world/                  pixels.ts (all pixel art), Art.ts (Phaser textures), Terrain.ts (ground painter)
   ui/                     Fact cards and visuals, effects (jump-scare, banners, QR), rules, CSS
 server/
   relay.mjs               Join rooms: host + up to 60 players, joystick relay, validation, rate limits
+  shared.mjs              Nickname and reaction rules shared with the Firebase link
   index.mjs               Serves dist/ plus the relay (npm run host)
+firebase.json, .firebaserc  Firebase Hosting (serves dist/) for project frog-94c78
+database.rules.json         Realtime Database rules for the Firebase link
 ```
 
 The original brief is kept in `MOUNTAIN_CHICKEN_GAME_MASTER_SPEC.md`. This version deliberately goes beyond it: it became a group game played on phones because that's what the class presentation needed.

@@ -1,40 +1,21 @@
 import { randomBytes, randomInt } from 'node:crypto';
 import { networkInterfaces } from 'node:os';
 import { WebSocketServer, WebSocket } from 'ws';
+import { cleanName, uniqueName, NAME_LENGTH, PLAYERS_PER_ROOM, REACTIONS } from './shared.mjs';
+
+export { cleanName, REACTIONS };
 
 /**
  * Class relay. One host browser (the projector) owns all game state and scoring; phones join with
  * a code and nickname and act as joysticks for their own frog. The relay validates, rate-limits
  * and forwards.
  */
-export const LIMITS = { rooms: 30, playersPerRoom: 60, clients: 600, nameLength: 16, stateBytes: 3000, privateBytes: 1000 };
-export const REACTIONS = ['🐸', '❤️', '😱', '👏', '🔥', '🦗'];
+export const LIMITS = { rooms: 30, playersPerRoom: PLAYERS_PER_ROOM, clients: 600, nameLength: NAME_LENGTH, stateBytes: 3000, privateBytes: 1000 };
 export const MODES = ['lobby', 'learn', 'intro', 'round', 'results', 'final', 'paused'];
 
 const send = (socket, value) => { if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(value)); };
 const jsonSize = value => { try { return JSON.stringify(value).length; } catch { return Infinity; } };
 const isPlainObject = value => !!value && typeof value === 'object' && !Array.isArray(value);
-
-/** Nicknames: printable, single-spaced, at most 16 characters (counted as code points). */
-export function cleanName(value) {
-  if (typeof value !== 'string') return '';
-  const printable = value.normalize('NFC')
-    .replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff]/g, '')
-    .replace(/[<>]/g, '')
-    .replace(/\s+/g, ' ').trim();
-  return Array.from(printable).slice(0, LIMITS.nameLength).join('').trim();
-}
-
-function uniqueName(room, name) {
-  const taken = new Set([...room.players.values()].map(player => player.name.toLowerCase()));
-  if (!taken.has(name.toLowerCase())) return name;
-  for (let n = 2; n < 1000; n++) {
-    const suffix = ` ${n}`;
-    const candidate = Array.from(name).slice(0, LIMITS.nameLength - suffix.length).join('').trim() + suffix;
-    if (!taken.has(candidate.toLowerCase())) return candidate;
-  }
-  return `Frog ${randomInt(1000, 10000)}`;
-}
 
 /** Addresses classmates can type on the same network. */
 export function lanAddresses(port) {
@@ -96,7 +77,7 @@ export function attachRelay(http, { path = '/session' } = {}) {
           const name = cleanName(message.name);
           if (!name) { send(socket, { type: 'error', message: 'Type a nickname first.' }); return; }
           if (target.players.size >= LIMITS.playersPerRoom) { send(socket, { type: 'error', message: 'This game is full.' }); return; }
-          player = { id: randomBytes(4).toString('hex'), token: randomBytes(12).toString('hex'), name: uniqueName(target, name), socket: null };
+          player = { id: randomBytes(4).toString('hex'), token: randomBytes(12).toString('hex'), name: uniqueName([...target.players.values()].map(item => item.name), name), socket: null };
           target.players.set(player.id, player);
         }
         player.socket = socket;

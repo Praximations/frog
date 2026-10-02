@@ -1,4 +1,5 @@
-import { socketUrl, type PhoneState, type PrivateMessage } from './ClassHost';
+import type { PhoneState, PrivateMessage } from './ClassHost';
+import { openLink, type Link } from './link';
 import type { Team } from './match';
 
 type Listener = (message?: PrivateMessage) => void;
@@ -20,6 +21,7 @@ class ClassPlayer {
   private socket?: WebSocket;
   private listeners = new Set<Listener>();
   private retry?: number;
+  private generation = 0;
 
   subscribe(listener: Listener): () => void { this.listeners.add(listener); return () => this.listeners.delete(listener); }
   private emit(message?: PrivateMessage): void { this.listeners.forEach(listener => listener(message)); }
@@ -29,11 +31,17 @@ class ClassPlayer {
     try { const value = JSON.parse(sessionStorage.getItem(STORE) || 'null'); return value?.code && value?.token ? value : null; } catch { return null; }
   }
 
-  join(code: string, name: string, token = ''): Promise<void> {
+  async join(code: string, name: string, token = ''): Promise<void> {
     this.close(false);
     this.error = ''; this.ended = false;
-    const socket = new WebSocket(socketUrl());
+    const generation = ++this.generation;
+    let link: Link;
+    try { link = await openLink('player'); }
+    catch { this.error = 'Could not load the game. Check your internet connection.'; this.emit(); throw new Error(this.error); }
+    if (generation !== this.generation) { link.socket.close(); throw new Error('Cancelled'); }
+    const { socket, kind } = link;
     this.socket = socket;
+    const unreachable = kind === 'firebase' ? 'Could not reach the game. Check your internet connection.' : 'Could not reach the game. Are you on the same Wi-Fi as the projector?';
     return new Promise((resolve, reject) => {
       let settled = false;
       const fail = (message: string) => {
@@ -41,9 +49,9 @@ class ClassPlayer {
         this.error = message; this.connected = false; this.emit();
         if (!settled) { settled = true; clearTimeout(timeout); reject(new Error(message)); }
       };
-      const timeout = window.setTimeout(() => { fail('Could not reach the game. Are you on the same Wi-Fi as the projector?'); socket.close(); }, 7000);
+      const timeout = window.setTimeout(() => { fail(unreachable); socket.close(); }, kind === 'firebase' ? 12000 : 7000);
       socket.addEventListener('open', () => socket.send(JSON.stringify({ type: 'join', code, name, token: token || undefined })));
-      socket.addEventListener('error', () => fail('Could not reach the game. Check the address on the big screen.'));
+      socket.addEventListener('error', () => fail(kind === 'firebase' ? unreachable : 'Could not reach the game. Check the address on the big screen.'));
       socket.addEventListener('close', () => {
         if (this.socket !== socket) return;
         const was = this.connected;
@@ -92,6 +100,7 @@ class ClassPlayer {
   react(emoji: string): void { this.send({ type: 'react', emoji }); }
 
   close(forget = true): void {
+    this.generation++;
     clearTimeout(this.retry);
     const socket = this.socket; this.socket = undefined; socket?.close();
     this.connected = false;

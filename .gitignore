@@ -3,3 +3,9 @@ dist/
 .tools/
 *.log
 .DS_Store
+
+# Firebase
+.firebase/
+firebase-debug.log
+database-debug.log
+firebase-debug.*.log
