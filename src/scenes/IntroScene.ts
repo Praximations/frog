@@ -47,7 +47,7 @@ export class IntroScene extends Phaser.Scene {
       <p class="intro-caption" id="caption"></p>
       <div class="intro-reveal" id="reveal" hidden>
         <h1 class="intro-title">The mountain chicken<br>is a <span>FROG!</span></h1>
-        <div class="intro-plate" id="plate" hidden><b>${esc(SPECIES.commonName)}</b><i>${esc(SPECIES.scientificName)}</i></div>
+        <div class="intro-plate" id="plate" hidden><b>${esc(SPECIES.commonName)}</b><i>${esc(SPECIES.scientificName)}</i><small>also called the ${esc(SPECIES.otherName.toLowerCase())}</small></div>
         <div class="intro-stamp" id="stamp" hidden>${esc(SPECIES.status.toUpperCase())}</div>
         <p class="intro-why" id="why" hidden>Why "chicken"? People used to hunt it for food and said it tastes like chicken.</p>
         <button class="start-button" id="next" hidden>LET'S PLAY ▸</button>

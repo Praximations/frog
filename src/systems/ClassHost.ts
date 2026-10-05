@@ -16,6 +16,7 @@ export type PhoneState =
   | { mode: 'round'; round: number; rounds: number; title: string; goal: string }
   | ({ mode: 'quiz' } & QuizView)
   | { mode: 'reveal'; q: string; correct: number; answer: string; fact: string }
+  | { mode: 'cooking'; cooked: number }
   | { mode: 'results'; title: string }
   | { mode: 'learn'; title: string }
   | { mode: 'final' }
@@ -26,12 +27,16 @@ export type BoostKind = 'speed' | 'tongue' | 'double' | 'shield';
 /** One-player messages. (Scores and positions travel in the world snapshots.) */
 export type PrivateMessage =
   | { kind: 'you'; name: string; color: string; colorName: string }
-  | { kind: 'caught'; scare: boolean; by: 'hunter' | 'trap' | 'pig' }
+  | { kind: 'caught'; scare: boolean; by: 'hunter' | 'trap' | 'pig' | 'human' }
   | { kind: 'shock' }
+  | { kind: 'growl' }
   | { kind: 'boost'; boost: BoostKind; seconds: number }
   | { kind: 'sick'; sick: boolean }
   | { kind: 'result'; q: string; correct: boolean; points: number }
-  | { kind: 'final'; rank: number; of: number; score: number };
+  | { kind: 'final'; rank: number; of: number; score: number }
+  | { kind: 'role'; role: 'frog' | 'human' }
+  | { kind: 'caged'; caged: boolean }
+  | { kind: 'cooked'; cooked: boolean; points: number };
 
 /** Things a player does that reach the projector. */
 export type PlayerEvent =

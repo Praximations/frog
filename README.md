@@ -1,6 +1,6 @@
 # Mountain Chicken — a class game about a giant, disappearing frog
 
-A pixel-art party game for a ~10 minute endangered-species presentation, played like Kahoot: **one person hosts** on the big screen, and **everyone else joins with a code** on their phone or laptop. Each player designs their own mountain chicken frog (*Leptodactylus fallax*): a skin, a hat and a colour. Then they explore a rainforest map on their own screen, with the camera following their frog, collecting insects. The big screen shows the whole map with everyone on it.
+A pixel-art party game for a ~10 minute endangered-species presentation, played like Kahoot: **one person hosts** on the big screen, and **everyone else joins with a code** on their phone or laptop. Each player designs their own mountain chicken frog (*Leptodactylus fallax*, also called the giant ditch frog): a skin, a hat and a colour. Then they explore a big rainforest map on their own screen, with the camera following their frog, collecting insects. In round 2, some players turn into the humans hunting everyone else. The big screen shows the whole map with everyone on it.
 
 **How to play** (what the game tells players):
 
@@ -50,7 +50,7 @@ Leave that terminal open. On the projector laptop, open **http://localhost:3000*
 
 ### Trying it alone
 
-Open the game twice: **HOST A GAME** in one browser tab, and join with the code from another tab (or your phone). Players on laptops use the arrow keys or WASD (or drag with the mouse), and 1–4 for quiz answers. Computer "Wild Frogs" join when fewer than 3 people are playing.
+Open the game twice: **HOST A GAME** in one browser tab, and join with the code from another tab (or your phone). Players on laptops use the arrow keys or WASD (or drag with the mouse), and 1–4 for quiz answers. Computer "Wild Frogs" only join when fewer than 3 people are playing (checked again at the start of every round), and computer hunters only come out in round 2 when there's just one player.
 
 ## The 10-minute run sheet
 
@@ -64,7 +64,7 @@ The host presses **Enter** or the big green button to move on. Most screens also
 | How to play | The three rules. | 15 s |
 | **Round 1: Bug Feast** | Eat bugs; wild pigs burst out of the undergrowth and charge (−2). | 1 min + 2 quiz questions |
 | Did you know? | Fact card: what it eats and its job in the food web | 30 s |
-| **Round 2: Hunter Night** | It's dark. Hunters with flashlights and cage traps catch frogs (−3, plus a jump-scare). | 1 min + 2 quiz questions |
+| **Round 2: Hide From Humans** | About one player in six becomes a **human** with a flashlight; everyone else is a frog. It's night and every phone only sees what's close. The humans count to five at their camp while the frogs hide in bushes, hollow logs, tall grass or the cave. Humans catch frogs by touching them (+5); caught frogs go in the cage until another frog touches it to free them (+3 each). At the end, frogs still in the cage go **in the cooking pot** (a cartoon on the big screen, with the real hunting fact); every frog that escaped gets +10. | 1¼ min + 2 quiz questions |
 | Did you know? | Fact card: why it's disappearing | 30 s |
 | **Round 3: Fungus Outbreak** | Green clouds of chytrid fungus make frogs sick (slow, can't eat, lose points) until they hop into a warm spring. | 1 min + 2 quiz questions |
 | Did you know? | Fact card: who's helping | 30 s |
@@ -75,12 +75,16 @@ The host presses **Enter** or the big green button to move on. Most screens also
 
 **Boosts** appear around the map: ⚡ Speed, 👅 Long tongue, ✖2 Double points and 🍃 Leaf cloak (hunters, pigs and fungus can't get you). Each lasts 8 seconds.
 
-**The map** is a patch of Dominican rainforest, about four phone screens wide: a lake with a stream (cross it on the plank bridge or the stepping stones), a pond, tree thickets and boulders to hop around, three warm springs, a research station and a volcano peeking over the trees. Each player's screen follows their own frog (with a white arrow over it) and has a little map in the corner. When a pig charges in from off-screen, a **PIG!** warning flashes at the edge of your screen.
+**The map** is a big patch of Dominican rainforest, about seven phone screens wide: a lake with a stream and a river (cross them on plank bridges or stepping stones), two ponds, tree thickets and boulders to hop around, four warm springs, a research station, the hunters' camp (tents, a cage and a cooking pot), a volcano peeking over the trees and 44 hiding places (big bushes, hollow logs and tall grass). Each player's screen follows their own frog (with a white arrow over it) and has a little map in the corner. When a pig charges in from off-screen, a **PIG!** warning flashes at the edge of your screen.
+
+**Random events:** once per round, one of these happens at a random moment: 🌧️ a **rain shower** (bugs come out), ⭐ a **giant golden cricket** (10 points, with an arrow pointing to it), 🌋 a **volcano rumble** (the ground shakes and ash falls; everyone slows down) or 🌀 a **hurricane gust** (the wind pushes everyone sideways). Each is a real thing that happens to the frog's islands.
+
+**Hide From Humans, in more detail:** frogs in a hiding place vanish from the big screen and from the humans' phones; a human only sees a hiding frog when standing right next to it or shining a flashlight on it, and hears "rustling" when one is close. Frogs see each other (faintly when hidden) and feel their phone's heartbeat speed up as a human gets near. Lightning flashes now and then. If there's only one player, computer hunters do the hunting instead.
 
 ## Jump-scares
 
-- **The hidden cave (a secret: it's not in the instructions):** in the bottom-right corner of the map, down a narrow trail through the trees marked only by little glowing mushrooms, there's a mossy cave with crystals and a pair of eyes that blink now and then. Hop into its mouth and your phone goes dark ("It's very dark in here…"), then a screaming face fills the screen with a loud shriek and a long buzz. Only the player who went in gets it; the big screen just shows an "AAAAAH!" by the cave, so others get curious. Each player can trigger it once every 45 seconds.
-- **Getting caught** by a hunter or trap (round 2) flashes a hunter's face on that player's phone. The **first** catch of the game also shows it full-screen on the big screen, with a real hunting fact.
+- **The cave:** on the north edge of the map, at the end of a path lined with glowing mushrooms, there's a mossy cave with crystals and a pair of eyes that blink now and then. A boulder blocks it in round 1; it rolls away for rounds 2 and 3. It's a hiding place (humans are too scared to go in, so nobody can catch you there), and the round 2 card mentions it. But something lives inside: the first time each player goes in, their phone goes dark ("It's very dark in here…"), then a screaming face fills the screen with a loud shriek and a long buzz. Only that player gets it; the big screen just shows an "AAAAAH!" by the cave. After that, you can hide in there for about seven seconds before something growls you back out.
+- **Getting caught** in round 2 flashes a hunter's face on that player's phone. The **first** catch of the game also shows it full-screen on the big screen, with a real hunting fact.
 
 Switch **Jump-scares** off in the host menu (**Esc**) for a gentle "CAUGHT!" and no cave scare. Tell everyone to turn their phone sound up (the buzz only works on Android phones).
 
@@ -88,17 +92,17 @@ Switch **Jump-scares** off in the host menu (**Esc**) for a gentle "CAUGHT!" and
 
 | Rubric item (2 pts each) | Fact card | Also in |
 |---|---|---|
-| Name (common and scientific) | 1 | Intro reveal; quiz |
+| Name (common and scientific) | 1 (also called the giant ditch frog) | Intro reveal; quiz |
 | Status | 2 (IUCN Red List scale) | Intro stamp; quiz |
 | Habitat (name and description) | 3 (island map) | Quiz |
 | Physical description | 4 | Quiz |
 | Illustration / picture | 5 (field-guide plate) | The pixel frog everywhere |
 | Niche | 6 (food chain), after round 1 | Eating bugs; quiz (what it eats) |
-| Major reasons it is listed | 7 (population crash), after round 2 | Pigs, hunters, traps, fungus; quiz |
+| Major reasons it is listed | 7 (population crash), after round 2 | Pigs (round 1), hunting (round 2 and the cooking pot), fungus (round 3), volcano and hurricane events; quiz |
 | Importance | 8 (coat of arms) | Quiz |
 | Support being given | 9 (recovery timeline), after round 3 | Warm springs in round 3; quiz |
 | Six degrees of separation | 10 (you → pet frog → … → mountain chicken) | Quiz |
-| Creativity | | The intro gag, phones as controllers, three rounds, boosts, Kahoot quiz, the cave |
+| Creativity | | The intro gag, custom frogs, each player's own view of a big map, Hide From Humans with the cooking pot, random events, boosts, Kahoot quiz, the cave |
 | Extra credit ideas | 5, 10 | Bonus facts on card 5; a second, climate chain on card 10 |
 
 The home page's **Fact cards** link opens all ten any time (so you can present them separately too). Every card lists its sources; the full list is in [SOURCES.md](SOURCES.md) and on the *Sources* screen at the end.
@@ -128,7 +132,7 @@ npm test           # class-server tests + content, rubric and team-logic tests
 npm run deploy     # build and upload to Firebase Hosting (plus the database rules)
 ```
 
-Phones and the projector talk through one of two links with the same messages: the class server (`server/relay.mjs`, used by `npm run host` and `npm run dev`) or, on Firebase Hosting, the Firebase Realtime Database (`src/systems/firebaseRelay.ts`, downloaded only there). The projector runs the game: each phone moves its own frog and sends its position about ten times a second; the projector checks it (frogs can't swim or hop through trees) and sends everyone a small snapshot of the map (frogs, bugs, dangers, scores) several times a second. A 30-player game on Firebase uses roughly 200–300 MB of the free plan's 10 GB monthly download allowance. On any other static host, players can't join (the host sees computer frogs only). To try the Firebase link locally, start the database emulator (`npm run firebase:emulators`) and build with `VITE_FIREBASE_DATABASE_URL="http://127.0.0.1:9000/?ns=frog-94c78-default-rtdb"`. Everything else is local: fonts, art (drawn in code) and sound (synthesized with Web Audio).
+Phones and the projector talk through one of two links with the same messages: the class server (`server/relay.mjs`, used by `npm run host` and `npm run dev`) or, on Firebase Hosting, the Firebase Realtime Database (`src/systems/firebaseRelay.ts`, downloaded only there). The projector runs the game: each phone moves its own frog and sends its position about ten times a second; the projector checks it (frogs can't swim or hop through trees) and sends everyone a small snapshot of the map (frogs, bugs, dangers, scores) several times a second. A 30-player game on Firebase uses roughly 300–500 MB of the free plan's 10 GB monthly download allowance. On any other static host, players can't join (the host sees computer frogs only). To try the Firebase link locally, start the database emulator (`npm run firebase:emulators`) and build with `VITE_FIREBASE_DATABASE_URL="http://127.0.0.1:9000/?ns=frog-94c78-default-rtdb"`. Everything else is local: fonts, art (drawn in code) and sound (synthesized with Web Audio).
 
 ### Architecture
 
@@ -141,7 +145,7 @@ src/
     IntroScene            The chicken gag and the name/status reveal
     PondScene             The host's overview of the whole map: lobby, how to play, rounds, quiz, results, fact cards
     FinaleScene           Podium (with everyone's custom frogs), the remaining fact cards, thank-you and sources
-  play/                   PondGame (a round: bugs, boosts, pigs, hunters and traps, fungus, computer frogs),
+  play/                   PondGame (a round: bugs, boosts, events, pigs, Hide From Humans, fungus, computer frogs),
                           PlayerScene + playerGame (a player's own view, following their frog), controls
   entities/               PartyFrog (a player's frog: skin, hat, animation), Critters (bugs, decorative frogs)
   phone/PhoneApp.ts       Home page (pick your frog, join or host) and the player's screen: the game view with a

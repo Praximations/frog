@@ -2,13 +2,13 @@ import Phaser from 'phaser';
 import { PartyFrog } from '../entities/PartyFrog';
 import { Prey } from '../entities/Critters';
 import { MapView } from '../world/mapView';
-import { MAP, POOLS, step } from '../world/map';
+import { CAVE, MAP, POOLS, hideAt, isCaveOpen, setCaveOpen, step } from '../world/map';
 import { ensureArt } from '../world/Art';
 import { BOOSTS, ROUNDS } from '../data/game';
 import { parseLook, lookColor } from '../data/looks';
 import { classPlayer } from '../systems/ClassPlayer';
 import { sound } from '../systems/Sound';
-import { BOOST_KINDS, FACINGS, FLAG, PREY_KINDS, frogPace, type FrogRow, type WorldSnapshot } from '../systems/world';
+import { BOOST_KINDS, EVENT_KINDS, FACINGS, FLAG, PREY_KINDS, WIND_PUSH, frogPace, type FrogRow, type WorldSnapshot } from '../systems/world';
 import { controls } from './controls';
 
 /** Another player's frog: drawn where the projector last saw it, gliding between snapshots. */
@@ -20,12 +20,18 @@ interface Pickup { icon: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Imag
 
 const BOOST_FLAGS = [['speed', FLAG.speed], ['tongue', FLAG.tongue], ['double', FLAG.double], ['shield', FLAG.shield]] as const;
 const MOVE_EVERY = 100;
+/** Hide From Humans: how far you can see in the dark (world pixels), and how close a human makes your heart race. */
+const SIGHT = { frog: 300, human: 340 };
+const DANGER = 440;
 const ease = (delta: number, ms: number): number => 1 - Math.exp(-delta / ms);
 
 /**
  * A player's own view of the map: the forest around their frog, with the camera following it.
  * The phone moves its own frog straight away (and tells the projector where it is); everything
  * else (other frogs, bugs, hunters, pigs, fungus) comes from the projector's snapshots.
+ * In Hide From Humans it's dark and you only see what's near you: frogs hear their heart pound
+ * when a human comes close; humans can't see frogs hiding in bushes, logs and grass until they're
+ * right next to them (or in their flashlight).
  */
 export class PlayerScene extends Phaser.Scene {
   private map!: MapView;
@@ -53,6 +59,13 @@ export class PlayerScene extends Phaser.Scene {
   private round = 0;
   private minimapBase?: HTMLCanvasElement;
   private offs: (() => void)[] = [];
+  private vision!: Phaser.GameObjects.Image;
+  private flash!: Phaser.GameObjects.Rectangle;
+  private goldenEdge!: Phaser.GameObjects.Text;
+  private weather?: Phaser.GameObjects.Particles.ParticleEmitter;
+  private event?: { kind: typeof EVENT_KINDS[number]; left: number; dir: number };
+  private flashes = -1;
+  private nextBeat = 0;
 
   constructor() { super('PlayerScene'); }
 
@@ -67,6 +80,18 @@ export class PlayerScene extends Phaser.Scene {
     camera.setBounds(0, 0, MAP.width, MAP.height).startFollow(this.focus, true, .14, .14).setBackgroundColor('#22331f');
     this.fitZoom();
     this.scale.on(Phaser.Scale.Events.RESIZE, this.fitZoom, this);
+    if (!this.textures.exists('vision')) {
+      // A dark screen with a soft hole in the middle: how far you can see at night.
+      const canvas = document.createElement('canvas'); canvas.width = canvas.height = 512;
+      const ctx = canvas.getContext('2d')!;
+      const gradient = ctx.createRadialGradient(256, 256, 34, 256, 256, 64);
+      gradient.addColorStop(0, 'rgba(2,6,16,0)'); gradient.addColorStop(1, 'rgba(2,6,16,0.94)');
+      ctx.fillStyle = gradient; ctx.fillRect(0, 0, 512, 512);
+      this.textures.addCanvas('vision', canvas);
+    }
+    this.vision = this.add.image(0, 0, 'vision').setDepth(4200).setVisible(false);
+    this.flash = this.add.rectangle(0, 0, 4000, 4000, 0xe8f0ff, 0).setOrigin(0).setScrollFactor(0).setDepth(6500);
+    this.goldenEdge = this.add.text(0, 0, '★ GOLDEN CRICKET', { fontFamily: 'PressStart', fontSize: '14px', color: '#3d2f27', backgroundColor: '#ffd84a', padding: { x: 8, y: 6 } }).setScrollFactor(0).setDepth(6000).setOrigin(.5).setVisible(false);
     for (let i = 0; i < 2; i++) this.edges.push(this.add.text(0, 0, '', { fontFamily: 'PressStart', fontSize: '16px', color: '#fff6dc', backgroundColor: '#c93a2a', padding: { x: 8, y: 6 } }).setScrollFactor(0).setDepth(6000).setOrigin(.5).setVisible(false));
     this.offs.push(classPlayer.onWorld(world => this.apply(world)), classPlayer.subscribe(() => this.onState()));
     const stop = () => { this.offs.forEach(off => off()); this.offs = []; this.scale.off(Phaser.Scale.Events.RESIZE, this.fitZoom, this); };
@@ -111,8 +136,12 @@ export class PlayerScene extends Phaser.Scene {
   /** Whether your frog may move right now. */
   private get free(): boolean {
     const mode = classPlayer.state.mode;
-    return controls.enabled && (mode === 'lobby' || mode === 'round') && !(this.flags & (FLAG.frozen | FLAG.captured | FLAG.hidden));
+    return controls.enabled && (mode === 'lobby' || mode === 'round') && !(this.flags & (FLAG.frozen | FLAG.captured | FLAG.hidden | FLAG.caged));
   }
+
+  /** Hide From Humans is on (and it's dark). */
+  private get hunt(): boolean { return !!ROUNDS[this.round - 1]?.hide && classPlayer.state.mode !== 'lobby'; }
+  private get amHuman(): boolean { return !!(this.flags & FLAG.human); }
 
   // ---------------------------------------------------------------- snapshots
 
@@ -148,6 +177,40 @@ export class PlayerScene extends Phaser.Scene {
     this.syncClouds(world);
     this.syncPickups(world);
     this.syncTraps(world);
+    this.syncEvent(world);
+    const open = world.o === 1;
+    if (open !== isCaveOpen()) { setCaveOpen(open); this.map.setCave(open); }
+    if (world.z !== undefined && world.z !== this.flashes) {
+      if (this.flashes >= 0) this.lightning();
+      this.flashes = world.z;
+    }
+  }
+
+  /** The random event: rain, ash from the volcano, a hurricane gust, or a giant golden cricket. */
+  private syncEvent(world: WorldSnapshot): void {
+    const kind = world.e ? EVENT_KINDS[world.e[0]] : undefined;
+    if (kind !== this.event?.kind) {
+      this.weather?.stop();
+      const old = this.weather;
+      if (old) this.time.delayedCall(2500, () => old.destroy());
+      this.weather = undefined;
+      const width = this.scale.gameSize.width, height = this.scale.gameSize.height;
+      const dir = world.e?.[2] ?? 1;
+      if (kind === 'rain') this.weather = this.add.particles(0, 0, 'raindrop', { x: { min: 0, max: width }, y: { min: -20, max: height }, lifespan: 400, speedY: { min: 700, max: 900 }, speedX: { min: -60, max: -30 }, scale: 3, alpha: { start: .7, end: .2 }, frequency: 12, quantity: 2 });
+      else if (kind === 'quake') { this.weather = this.add.particles(0, 0, 'ash', { x: { min: 0, max: width }, y: { min: -20, max: height }, lifespan: 2000, speedY: { min: 40, max: 110 }, speedX: { min: -20, max: 20 }, scale: { start: 3, end: 1 }, alpha: { start: .9, end: 0 }, frequency: 40 }); this.cameras.main.shake((world.e?.[1] ?? 6) * 1000, .006); }
+      else if (kind === 'wind') this.weather = this.add.particles(0, 0, 'leaf', { x: dir > 0 ? { min: -40, max: 0 } : { min: width, max: width + 40 }, y: { min: 0, max: height }, lifespan: 2400, speedX: { min: 400 * dir, max: 700 * dir }, speedY: { min: -30, max: 30 }, rotate: { min: 0, max: 360 }, scale: 3, frequency: 30 });
+      this.weather?.setScrollFactor(0).setDepth(5500);
+    }
+    this.event = kind ? { kind, left: world.e![1], dir: world.e![2] } : undefined;
+  }
+
+  /** Lightning: the whole screen flashes white and, for a moment, the dark is gone. */
+  private lightning(): void {
+    this.flash.setFillStyle(0xe8f0ff, .85);
+    this.tweens.add({ targets: this.flash, fillAlpha: 0, duration: 500, ease: 'Quad.easeIn' });
+    this.vision.setAlpha(0);
+    this.tweens.add({ targets: this.vision, alpha: 1, duration: 900, delay: 250 });
+    this.time.delayedCall(300, () => sound.play('thunder'));
   }
 
   private applyMine(row: FrogRow, now: number): void {
@@ -172,9 +235,10 @@ export class PlayerScene extends Phaser.Scene {
       if (far > 300) { this.focus.setPosition(x, y); this.cameras.main.centerOn(x, y); }
       this.sendMove(true);
     }
-    if (flags & FLAG.captured && !(this.flags & FLAG.captured)) { me.capture(now, null, 2600); this.cameras.main.shake(300, .01); }
+    if (flags & FLAG.captured && !(this.flags & FLAG.captured)) { me.capture(now, null, flags & FLAG.caged ? 650 : 2600); this.cameras.main.shake(300, .01); }
     this.flags = flags;
     this.applyFlags(me, flags, now);
+    me.veil = flags & FLAG.concealed ? .55 : 1;
     if (this.score >= 0 && score !== this.score) this.float(me.x, me.y - 90, score > this.score ? `+${score - this.score}` : `${score - this.score}`, score > this.score ? '#fff6b0' : '#ff8a6a');
     if (score > this.score && this.score >= 0) sound.play(score - this.score >= 3 ? 'catch' : 'gulp', score - this.score);
     this.score = score;
@@ -198,13 +262,22 @@ export class PlayerScene extends Phaser.Scene {
       frog.drop(now, far > 300 ? 380 : 90);
     }
     if (flags & FLAG.captured && !(remote.flags & FLAG.captured)) frog.capture(now, null, 2600);
+    if (flags & FLAG.captured && !(remote.flags & FLAG.captured)) frog.capture(now, null, flags & FLAG.caged ? 650 : 2600);
     remote.tx = x; remote.ty = y; remote.moving = (motion & 1) === 1; remote.flags = flags;
     frog.facing = FACINGS[motion >> 1] ?? 'down';
     frog.online = !(flags & FLAG.away);
     this.applyFlags(frog, flags, now);
+    // Hiding frogs: humans can't see them at all (unless they're right next to them); other frogs see them faintly.
+    const hiding = (flags & FLAG.concealed) && !(flags & FLAG.revealed);
+    frog.veil = hiding ? (this.amHuman ? 0 : .45) : 1;
+    if ((flags & FLAG.concealed) && remote.moving) { const hide = hideAt(x, y); if (hide) this.map.rustle(hide); }
   }
 
   private applyFlags(frog: PartyFrog, flags: number, now: number): void {
+    frog.setRole(flags & FLAG.human ? 'human' : 'frog');
+    frog.caged = !!(flags & FLAG.caged);
+    frog.concealed = !!(flags & FLAG.concealed);
+    frog.revealed = !!(flags & FLAG.revealed);
     frog.hide(!!(flags & FLAG.hidden));
     frog.sick = !!(flags & FLAG.sick);
     frog.safeUntil = flags & FLAG.safe ? now + 400 : 0;
@@ -235,8 +308,8 @@ export class PlayerScene extends Phaser.Scene {
       const [x, y] = rows[this.hunters.length];
       this.hunters.push({
         sprite: this.add.image(x, y, 'hunter').setOrigin(.5, .9).setScale(4.6),
-        beam: this.add.image(x, y, 'beam').setOrigin(0, .5).setScale(3.8, 4.6).setDepth(3100).setBlendMode(Phaser.BlendModes.ADD),
-        lamp: this.add.image(x, y, 'glow').setScale(3).setDepth(3100).setBlendMode(Phaser.BlendModes.ADD).setTint(0xfff0a0),
+        beam: this.add.image(x, y, 'beam').setOrigin(0, .5).setScale(3.8, 4.6).setDepth(4300).setBlendMode(Phaser.BlendModes.ADD),
+        lamp: this.add.image(x, y, 'glow').setScale(3).setDepth(4300).setBlendMode(Phaser.BlendModes.ADD).setTint(0xfff0a0),
         tx: x, ty: y, angle: 0, walking: false,
       });
     }
@@ -305,12 +378,19 @@ export class PlayerScene extends Phaser.Scene {
     const me = this.me;
     if (me) {
       let moving = false;
+      // Humans are too scared to go into the cave.
+      const allowed = this.amHuman ? (x: number, y: number) => Math.hypot(x - CAVE.x, y - CAVE.y) > 70 : undefined;
       if (this.free && (controls.x || controls.y)) {
         const length = Math.hypot(controls.x, controls.y);
-        const pace = frogPace(this.flags) * dt / 1000 * Math.min(1, length);
-        const next = step(me.x, me.y, controls.x / length * pace, controls.y / length * pace);
+        const pace = frogPace(this.flags, false, this.event?.kind === 'quake') * dt / 1000 * Math.min(1, length);
+        const next = step(me.x, me.y, controls.x / length * pace, controls.y / length * pace, undefined, allowed);
         me.face(controls.x, controls.y);
         moving = next.x !== me.x || next.y !== me.y;
+        me.x = next.x; me.y = next.y;
+      }
+      if (this.free && this.event?.kind === 'wind') {
+        // The hurricane gust pushes you along.
+        const next = step(me.x, me.y, this.event.dir * WIND_PUSH * dt / 1000, 0, undefined, allowed);
         me.x = next.x; me.y = next.y;
       }
       me.update(time, dt, moving);
@@ -327,6 +407,7 @@ export class PlayerScene extends Phaser.Scene {
     }
     for (const bug of this.bugs.values()) bug.follow(dt);
     this.moveDangers(time, dt);
+    this.nightVision(time);
     this.tongues.clear();
     me?.drawTongue(this.tongues, time);
     for (const remote of this.others.values()) remote.frog.drawTongue(this.tongues, time);
@@ -367,6 +448,53 @@ export class PlayerScene extends Phaser.Scene {
       const x = cloud.glow.x + (cloud.tx - cloud.glow.x) * k, y = cloud.glow.y + (cloud.ty - cloud.glow.y) * k;
       cloud.glow.setPosition(x, y); cloud.spores.setPosition(x, y);
     }
+    // The giant golden cricket: an arrow at the edge of the screen points the way.
+    const golden = [...this.bugs.values()].find(bug => bug.kind === 'mega' && bug.alive);
+    const camera = this.cameras.main;
+    if (golden && !Phaser.Geom.Rectangle.Contains(view, golden.sprite.x, golden.sprite.y)) {
+      const cx = view.centerX, cy = view.centerY;
+      const angle = Math.atan2(golden.sprite.y - cy, golden.sprite.x - cx);
+      const sx = Phaser.Math.Clamp(camera.width / 2 + Math.cos(angle) * camera.width, 90, camera.width - 90);
+      const sy = Phaser.Math.Clamp(camera.height / 2 + Math.sin(angle) * camera.height, 60, camera.height - 40);
+      const arrows = ['→', '↘', '↓', '↙', '←', '↖', '↑', '↗'];
+      this.goldenEdge.setText(`★ ${arrows[Math.round(((angle + Math.PI * 2) % (Math.PI * 2)) / (Math.PI / 4)) % 8]}`).setPosition(sx, sy).setVisible(true);
+    } else this.goldenEdge.setVisible(false);
+  }
+
+  /**
+   * Hide From Humans: you only see what's near you. Frogs feel their heart pound as a human gets
+   * close; humans hear rustling when a hiding frog is nearby.
+   */
+  private nightVision(time: number): void {
+    const me = this.me;
+    const view = document.querySelector<HTMLElement>('.play-view');
+    const hunt = this.hunt && !!me && classPlayer.state.mode === 'round';
+    this.vision.setVisible(hunt);
+    if (!hunt || !me) { view?.style.setProperty('--danger', '0'); view?.classList.remove('is-concealed'); this.whisper(''); return; }
+    this.vision.setPosition(me.x, me.y - 20).setScale((this.amHuman ? SIGHT.human : SIGHT.frog) / 46);
+    view?.classList.toggle('is-concealed', !!(this.flags & FLAG.concealed) && !(this.flags & FLAG.revealed));
+    if (this.amHuman) {
+      view?.style.setProperty('--danger', '0');
+      const near = [...this.others.values()].some(remote => (remote.flags & FLAG.concealed) && !(remote.flags & FLAG.revealed) && Math.hypot(remote.tx - me.x, remote.ty - me.y) < 240);
+      this.whisper(near ? '👂 Something is rustling nearby…' : '');
+      return;
+    }
+    let nearest = Infinity;
+    for (const remote of this.others.values()) if (remote.flags & FLAG.human) nearest = Math.min(nearest, Math.hypot(remote.tx - me.x, remote.ty - me.y));
+    for (const hunter of this.hunters) nearest = Math.min(nearest, Math.hypot(hunter.sprite.x - me.x, hunter.sprite.y - me.y));
+    const danger = this.flags & FLAG.caged ? 0 : Math.max(0, 1 - nearest / DANGER);
+    view?.style.setProperty('--danger', danger.toFixed(2));
+    this.whisper(this.flags & FLAG.caged ? '' : danger > .55 ? '😨 A human is very close!' : '');
+    if (danger > 0 && time >= this.nextBeat) {
+      this.nextBeat = time + 320 + (1 - danger) * 900;
+      sound.play('heartbeat');
+      if (danger > .6) { try { navigator.vibrate?.(40); } catch { /* optional */ } }
+    }
+  }
+
+  private whisper(text: string): void {
+    const element = document.getElementById('play-whisper');
+    if (element && element.textContent !== text) { element.textContent = text; element.hidden = !text; }
   }
 
   /** Tells the projector where your frog is: often while moving, now and then while still. */
@@ -387,7 +515,7 @@ export class PlayerScene extends Phaser.Scene {
     this.tweens.add({ targets: label, y: y - 50, alpha: 0, duration: 900, ease: 'Quad.easeOut', onComplete: () => label.destroy() });
   }
 
-  /** The little map in the corner: where you are, and everyone else. (The cave isn't marked.) */
+  /** The little map in the corner: where you are, and everyone else. (Humans can't see frogs on it.) */
   private drawMinimap(): void {
     const canvas = document.getElementById('minimap') as HTMLCanvasElement | null;
     if (!canvas) return;
@@ -405,9 +533,15 @@ export class PlayerScene extends Phaser.Scene {
     ctx.drawImage(this.minimapBase, 0, 0);
     if (this.map.night > .3) { ctx.fillStyle = 'rgba(6,18,38,.45)'; ctx.fillRect(0, 0, w, h); }
     const dot = (x: number, y: number, size: number, color: string) => { ctx.fillStyle = color; ctx.fillRect(Math.round(x * sx - size / 2), Math.round(y * sy - size / 2), size, size); };
+    if (isCaveOpen()) { dot(CAVE.x, CAVE.y, 7, '#1d1712'); dot(CAVE.x, CAVE.y, 4, '#8a6aff'); }
     for (const pickup of this.pickups.values()) dot(pickup.icon.x, pickup.icon.y, 3, '#fff0a0');
     for (const hunter of this.hunters) dot(hunter.sprite.x, hunter.sprite.y, 4, '#ff3a2a');
-    for (const remote of this.others.values()) if (!remote.frog.isHidden) dot(remote.frog.x, remote.frog.y, 4, lookColor(remote.frog.look).hex);
+    const hunt = this.hunt;
+    for (const remote of this.others.values()) {
+      if (remote.frog.isHidden || remote.frog.veil === 0) continue;
+      if (remote.frog.isHuman) dot(remote.frog.x, remote.frog.y, 5, '#ff3a2a');
+      else if (!(hunt && this.amHuman)) dot(remote.frog.x, remote.frog.y, 4, lookColor(remote.frog.look).hex);
+    }
     const me = this.me;
     if (me) {
       const blink = Math.floor(this.time.now / 400) % 2 === 0;

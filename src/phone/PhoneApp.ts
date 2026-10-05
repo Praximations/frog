@@ -1,8 +1,8 @@
 import { classPlayer } from '../systems/ClassPlayer';
 import type { PrivateMessage, PhoneState } from '../systems/ClassHost';
-import type { WorldSnapshot } from '../systems/world';
+import { EVENT_KINDS, FLAG, type WorldSnapshot } from '../systems/world';
 import { REACTIONS } from '../../server/shared.mjs';
-import { BOOSTS } from '../data/game';
+import { BOOSTS, EVENTS, GAME, ROUNDS } from '../data/game';
 import { JOURNAL } from '../data/journal';
 import { HATS, SKINS, formatLook, hatKey, parseLook, randomLook, type Look } from '../data/looks';
 import { COLORS, textOn } from '../systems/match';
@@ -40,6 +40,12 @@ export class PhoneApp {
   private boostTimer?: number;
   private sick = false;
   private timeLeft: number | null = null;
+  /** Hide From Humans: are you a frog or a human, are you in the cage, did you get cooked? */
+  private role: 'frog' | 'human' = 'frog';
+  private flags = 0;
+  private caged = false;
+  private cooked: { cooked: boolean; points: number } | null = null;
+  private eventKind = '';
   private game?: { destroy(removeCanvas: boolean): void };
 
   start(): void {
@@ -156,6 +162,10 @@ export class PhoneApp {
         <canvas id="minimap" width="176" height="99" aria-label="Map"></canvas>
       </div>
       <div class="stick-float" id="stick" hidden><div class="stick-knob" id="knob"></div></div>
+      <div class="play-danger" aria-hidden="true"></div>
+      <div class="play-whisper" id="play-whisper" hidden></div>
+      <div class="play-hidden-tag">🌿 HIDDEN</div>
+      <div class="play-caged" id="caged" hidden><b>🔒 CAUGHT!</b><span>You're in the hunters' cage. A frog friend can free you by touching it… before the round ends and the pot gets hot!</span></div>
       <div class="play-hint" id="hint">${touch() ? '👆 Drag anywhere to hop around' : '⌨️ Arrow keys or WASD to hop around'}</div>
       <div class="boost-bar" id="boost" hidden></div>
       <div class="play-panel" id="panel" hidden></div>
@@ -193,17 +203,46 @@ export class PhoneApp {
     if (!status) return;
     const state = classPlayer.state;
     const timer = this.timeLeft !== null && state.mode === 'round' ? `<b class="hud-time ${this.timeLeft <= 10 ? 'is-low' : ''}">${Math.floor(this.timeLeft / 60)}:${String(this.timeLeft % 60).padStart(2, '0')}</b>` : '';
+    const hide = state.mode === 'round' && ROUNDS[state.round - 1]?.hide;
+    const counting = this.role === 'human' && (this.flags & FLAG.frozen);
+    const goal = this.sick ? '🤢 You\'re sick! Hop into a warm spring.'
+      : hide && this.caged ? '🔒 You\'re in the cage! Wait for a friend.'
+        : hide && counting ? '🙈 Count to five… the frogs are hiding!'
+          : hide ? this.role === 'human' ? '🔦 You\'re a HUMAN: touch frogs to catch them!' : '🐸 Hide from the humans! Free friends from the cage.'
+            : state.mode === 'round' ? state.goal : '';
     const html = state.mode === 'lobby' ? '<span class="micro">YOU\'RE IN!</span><b>Explore the forest while everyone joins.</b>'
-      : state.mode === 'round' ? `<span class="micro">ROUND ${state.round} OF ${state.rounds} · ${esc(state.title.toUpperCase())}</span>${timer}<b>${this.sick ? '🤢 You\'re sick! Hop into a warm spring.' : esc(state.goal)}</b>`
+      : state.mode === 'round' ? `<span class="micro">ROUND ${state.round} OF ${state.rounds} · ${esc(state.title.toUpperCase())}</span>${timer}<b>${esc(goal)}</b>`
         : '';
     if (status.innerHTML !== html) status.innerHTML = html;
     status.hidden = !html;
     status.classList.toggle('is-sick', this.sick && state.mode === 'round');
+    status.classList.toggle('is-human', !!hide && this.role === 'human');
   }
 
   private onWorld(world: WorldSnapshot): void {
     const left = world.t ?? null;
-    if (left !== this.timeLeft) { this.timeLeft = left; if (this.view === 'play') this.renderHud(); }
+    const mine = world.f.find(row => row[0] === classPlayer.id);
+    const flags = mine?.[4] ?? this.flags;
+    const role = flags & FLAG.human ? 'human' : 'frog';
+    const changed = left !== this.timeLeft || role !== this.role || (flags & FLAG.frozen) !== (this.flags & FLAG.frozen);
+    this.timeLeft = left; this.flags = flags; this.role = role;
+    if (this.caged && !(flags & FLAG.caged) && !(flags & FLAG.captured)) this.setCaged(false);
+    if (changed && this.view === 'play') this.renderHud();
+    // The round's random event: a heads-up on every phone.
+    const kind = world.e ? EVENT_KINDS[world.e[0]] : '';
+    if (kind !== this.eventKind) {
+      this.eventKind = kind;
+      if (kind) { const info = EVENTS[kind]; this.toast(`${info.title} ${info.text}`); buzz([60, 40, 60]); }
+    }
+  }
+
+  private setCaged(caged: boolean): void {
+    if (caged === this.caged) return;
+    this.caged = caged;
+    const banner = this.root.querySelector<HTMLElement>('#caged');
+    if (banner) banner.hidden = !caged;
+    if (!caged && classPlayer.state.mode === 'round') { this.toast('🎉 FREED! Run and hide!'); buzz([40, 40, 40]); sound.play('unlock'); }
+    this.renderHud();
   }
 
   /** Quiz, results and other screens on top of the map. */
@@ -215,7 +254,7 @@ export class PhoneApp {
       if (!panel.hidden) { panel.hidden = true; panel.innerHTML = ''; this.panelKey = ''; }
       return;
     }
-    const key = `${state.mode}:${JSON.stringify(state)}:${this.answered?.q ?? ''}:${this.result?.q ?? ''}:${classPlayer.final?.rank ?? ''}:${classPlayer.score}`;
+    const key = `${state.mode}:${JSON.stringify(state)}:${this.answered?.q ?? ''}:${this.result?.q ?? ''}:${classPlayer.final?.rank ?? ''}:${classPlayer.score}:${this.role}:${this.cooked?.cooked ?? ''}`;
     if (key === this.panelKey) return;
     this.panelKey = key;
     this.keys.clear(); controls.x = 0; controls.y = 0; this.hideStick();
@@ -225,6 +264,7 @@ export class PhoneApp {
     else if (state.mode === 'intro') panel.innerHTML = this.introView(state);
     else if (state.mode === 'quiz') { panel.innerHTML = this.quizView(state); this.bindQuiz(state); }
     else if (state.mode === 'reveal') panel.innerHTML = this.revealView(state);
+    else if (state.mode === 'cooking') panel.innerHTML = this.cookingView(state);
     else if (state.mode === 'results') panel.innerHTML = `<div class="phone-card center"><span class="micro">${esc(state.title.toUpperCase())}</span><h2>You have ${classPlayer.score} points</h2><p>👀 Look at the big screen!</p></div>${this.reactionRow()}`;
     else if (state.mode === 'learn') panel.innerHTML = `<div class="phone-card center"><span class="micro">${esc(state.title.toUpperCase())}</span><h2>👀 Look at the big screen!</h2><p>Send a reaction:</p></div>${this.reactionRow()}`;
     else if (state.mode === 'final') {
@@ -243,7 +283,22 @@ export class PhoneApp {
 
   private introView(state: Extract<PhoneState, { mode: 'intro' }>): string {
     if (state.title === 'How to play') return `<div class="phone-card center phone-rules"><span class="micro">GET READY</span><h2>How to play</h2>${rulesHtml(true)}</div>`;
+    const hide = ROUNDS.find(round => round.hide && state.title.endsWith(round.title));
+    if (hide) {
+      // Hide From Humans: your role, big and clear.
+      return this.role === 'human'
+        ? `<div class="phone-card center role-card is-human"><span class="micro">${esc(state.title.toUpperCase())}</span><div class="role-icon">🔦</div><h2>YOU ARE A HUMAN!</h2><p>Hunt the frogs: <b>touch them to catch them</b> (+${GAME.catchPoints} each).</p><p>They hide in bushes, hollow logs and tall grass. Get close or shine your flashlight to find them. Caught frogs go in your cage — guard it!</p></div>`
+        : `<div class="phone-card center role-card is-frog"><span class="micro">${esc(state.title.toUpperCase())}</span><div class="role-icon">🐸</div><h2>YOU ARE A FROG!</h2><p><b>Hide from the humans!</b> Bushes, hollow logs, tall grass… or the cave.</p><p>Caught? You go in the cage. Touch the cage to free your friends. Still caged at the end… into the pot! 🍲</p></div>`;
+    }
     return `<div class="phone-card center round-intro"><span class="micro">GET READY</span><h2>${esc(state.title)}</h2><p>${esc(state.goal)}</p></div>`;
+  }
+
+  /** End of Hide From Humans: the cooking pot. */
+  private cookingView(state: Extract<PhoneState, { mode: 'cooking' }>): string {
+    const cooked = this.cooked;
+    if (this.role === 'human' || !cooked) return `<div class="phone-card center"><span class="micro">THE COOKING POT</span><h2>🍲 ${state.cooked ? `${state.cooked} frog${state.cooked === 1 ? '' : 's'} in the pot` : 'The pot is empty!'}</h2><p>👀 Look at the big screen!</p></div>`;
+    if (cooked.cooked) return `<div class="phone-card center cooked-card"><span class="micro">OH NO…</span><div class="phone-pot">${frogHtml(this.look, 'pot-frog')}<img class="pixel" src="${artUrl('pot', 8)}" alt=""></div><h2>YOU GOT COOKED! 🍲</h2><p>Nobody freed you from the cage in time.</p><p class="phone-note">Real hunters once caught up to 36,000 mountain chickens a year.</p></div>`;
+    return `<div class="phone-card center"><span class="micro">PHEW!</span><div class="medal">😅</div><h2>YOU ESCAPED THE POT!</h2><p class="gain">+${cooked.points}</p></div>`;
   }
 
   // ---------------------------------------------------------------- quiz
@@ -290,6 +345,10 @@ export class PhoneApp {
     else if (message.kind === 'sick') { this.sick = message.sick; buzz(message.sick ? [100, 60, 100] : 40); this.toast(message.sick ? '🤢 You caught chytrid fungus!' : '♨️ Cured! The warm water killed the fungus.'); }
     else if (message.kind === 'result') { this.result = message; buzz(message.correct ? [40, 60, 40] : 200); sound.play(message.correct ? 'correct' : 'wrong'); }
     else if (message.kind === 'you') buzz(30);
+    else if (message.kind === 'role') { this.role = message.role; this.cooked = null; buzz(message.role === 'human' ? [80, 40, 80] : 40); }
+    else if (message.kind === 'caged') this.setCaged(message.caged);
+    else if (message.kind === 'cooked') { this.cooked = { cooked: message.cooked, points: message.points }; buzz(message.cooked ? [200, 80, 400] : [40, 40, 40]); if (message.cooked) sound.play('bubble'); }
+    else if (message.kind === 'growl') { this.toast('😱 Something growled in the dark… RUN!'); buzz([300, 100, 300]); sound.play('growl'); }
   }
 
   private toast(text: string): void {
@@ -320,7 +379,7 @@ export class PhoneApp {
     const scary = message.scare && message.by !== 'pig';
     layer.className = scary ? 'phone-scare' : 'phone-caught';
     layer.innerHTML = scary ? `<img class="pixel" src="${artUrl('scare', 10)}" alt=""><b>CAUGHT!</b>`
-      : message.by === 'pig' ? '<b>OINK!</b><span>A wild pig knocked you over! −2</span>' : '<b>CAUGHT!</b><span>−3 points</span>';
+      : message.by === 'pig' ? '<b>OINK!</b><span>A wild pig knocked you over! −2</span>' : message.by === 'human' || ROUNDS.some(round => round.hide && classPlayer.state.mode === 'round' && classPlayer.state.round === round.number) ? '<b>CAUGHT!</b><span>Into the cage you go…</span>' : '<b>CAUGHT!</b><span>−3 points</span>';
     fx.replaceChildren(layer);
     sound.play(scary ? 'scare' : 'hurt');
     buzz(scary ? [300, 80, 300] : 150);

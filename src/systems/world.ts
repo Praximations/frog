@@ -6,7 +6,15 @@
 
 /** Frog flags. */
 export const FLAG = {
-  captured: 1, hidden: 2, frozen: 4, sick: 8, speed: 16, tongue: 32, double: 64, shield: 128, bot: 256, away: 512, safe: 1024, landing: 2048,
+  captured: 1, hidden: 2, frozen: 4, sick: 8, speed: 16, tongue: 32, double: 64, shield: 128, bot: 256, away: 512, safe: 1024,
+  /** Hide From Humans: this player is a human. */
+  human: 4096,
+  /** In a hiding place (humans can't see it unless it's revealed). */
+  concealed: 8192,
+  /** Caught, waiting in the hunters' cage. */
+  caged: 16384,
+  /** In a hiding place, but a human is close enough to see it. */
+  revealed: 32768,
 } as const;
 
 export const FACINGS = ['down', 'up', 'left', 'right'] as const;
@@ -46,13 +54,22 @@ export interface WorldSnapshot {
   r?: RosterRow[];
   /** Seconds left in the round. */
   t?: number;
+  /** The random event happening now: kind (index into EVENT_KINDS), seconds left, wind direction. */
+  e?: [number, number, number];
+  /** 1 when the cave is open. */
+  o?: number;
+  /** Counts lightning flashes (Hide From Humans). */
+  z?: number;
 }
 
 export const PREY_KINDS = ['cricket', 'beetle', 'millipede', 'snail', 'crab', 'golden', 'mega'] as const;
 export const BOOST_KINDS = ['speed', 'tongue', 'double', 'shield'] as const;
+export const EVENT_KINDS = ['rain', 'golden', 'quake', 'wind'] as const;
+/** How hard the hurricane gust pushes (world pixels per second). */
+export const WIND_PUSH = 120;
 
 /** How fast frogs hop (world pixels per second), before boosts. */
 export const FROG_SPEED = 300;
-export function frogPace(flags: number, bot = false): number {
-  return FROG_SPEED * (bot ? .72 : 1) * (flags & FLAG.speed ? 1.5 : 1) * (flags & FLAG.sick ? .55 : 1);
+export function frogPace(flags: number, bot = false, quake = false): number {
+  return FROG_SPEED * (bot ? .72 : 1) * (flags & FLAG.speed ? 1.5 : 1) * (flags & FLAG.sick ? .55 : 1) * (flags & FLAG.human ? 1.1 : 1) * (quake ? .6 : 1);
 }

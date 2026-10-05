@@ -1,14 +1,17 @@
 import { WORLD_SIZE } from '../../server/shared.mjs';
 
 /**
- * The map: a patch of Dominican rainforest around a lake, 2560 × 1440 world pixels. The projector
- * shows all of it; each phone shows the part around its own frog. Plain data and maths (no Phaser),
- * the same on every device, so the projector and the phones agree on where frogs can hop.
+ * The map: a big patch of Dominican rainforest around a lake, 3840 × 2160 world pixels. The
+ * projector shows all of it; each phone shows the part around its own frog. Plain data and maths
+ * (no Phaser), the same on every device, so the projector and the phones agree on where frogs can
+ * hop and hide.
  *
  * Open forest floor in the middle, thick forest all around. A lake with a stream running north
- * (one plank bridge, one set of stepping stones), a small pond, tree groves and boulders to hop
- * around, warm springs by the research station, and a volcano peeking over the trees. Tucked away
- * in the south-east corner, down a narrow trail through the trees, is a cave.
+ * and a river running south-west (each with a bridge and stepping stones), two ponds, thickets
+ * and boulders to hop around, warm springs, a research station, a hunters' camp with a cage and a
+ * cooking pot, a volcano peeking over the trees, and lots of places to hide: big bushes, hollow
+ * logs and tall grass. Up on the north edge, at the end of a path lined with glowing mushrooms,
+ * is a cave (blocked by a boulder in the first round).
  */
 export interface Point { x: number; y: number }
 interface Ellipse { x: number; y: number; rx: number; ry: number }
@@ -19,53 +22,63 @@ export const MAP = { width: WORLD_SIZE.width, height: WORLD_SIZE.height };
 export const FROG_RADIUS = 14;
 
 /** The open forest floor: a rounded rectangle with a wavy edge. */
-const AREA = { left: 170, top: 210, right: 2390, bottom: 1290, radius: 250 };
+const AREA = { left: 200, top: 250, right: 3640, bottom: 1940, radius: 340 };
 
-export const LAKE: Ellipse = { x: 1150, y: 770, rx: 300, ry: 160 };
-export const POND: Ellipse = { x: 2060, y: 430, rx: 112, ry: 58 };
-export const STREAM = { points: [[1196, 640], [1236, 520], [1196, 400], [1252, 290], [1222, 170], [1244, 40], [1236, -60]] as Line, width: 24 };
-/** Where frogs can cross the stream. */
+export const LAKE: Ellipse = { x: 1500, y: 1180, rx: 380, ry: 200 };
+export const POND: Ellipse = { x: 3050, y: 620, rx: 130, ry: 66 };
+export const POND_SOUTH: Ellipse = { x: 2720, y: 1760, rx: 96, ry: 50 };
+const WATERS = [LAKE, POND, POND_SOUTH];
+/** A stream from the lake up into the forest, and a river from the lake down to the south-west. */
+export const STREAMS = [
+  { points: [[1540, 1000], [1600, 860], [1530, 720], [1610, 580], [1560, 430], [1630, 290], [1590, 140], [1620, -60]] as Line, width: 26 },
+  { points: [[1180, 1290], [1050, 1430], [980, 1600], [860, 1780], [800, 1960], [760, 2240]] as Line, width: 26 },
+];
+/** Where frogs can cross the water. */
 export const CROSSINGS = [
-  { kind: 'bridge', x: 1196, y: 400, w: 160, h: 44 },
-  { kind: 'stones', x: 1246, y: 268, w: 132, h: 34 },
+  { kind: 'bridge', x: 1530, y: 720, w: 170, h: 44 },
+  { kind: 'stones', x: 1563, y: 430, w: 140, h: 34 },
+  { kind: 'bridge', x: 980, y: 1600, w: 170, h: 44 },
+  { kind: 'stones', x: 827, y: 1880, w: 140, h: 34 },
 ] as const;
 
 /** Sun-warmed springs (31 °C): too warm for the chytrid fungus, so sick frogs get better there. */
-export const POOLS: Point[] = [{ x: 560, y: 1120 }, { x: 1760, y: 330 }, { x: 1960, y: 1060 }];
-export const STATION = { x: 380, y: 1060 };
-export const VOLCANO = { x: 600, y: 214 };
+export const POOLS: Point[] = [{ x: 640, y: 1700 }, { x: 2450, y: 470 }, { x: 3200, y: 1500 }, { x: 950, y: 560 }];
+export const STATION = { x: 430, y: 1560 };
+export const VOLCANO = { x: 900, y: 262 };
 
-/** Dirt paths (decoration). The south path fades out just before the cave trail. */
+/** The hunters' camp: tents, a campfire with a cooking pot, and the cage for caught frogs. */
+export const CAMP = { x: 2450, y: 1110, rx: 270, ry: 170 };
+export const CAGE = { x: 2410, y: 1080, radius: 58 };
+export const POT = { x: 2620, y: 1160 };
+const TENTS: Point[] = [{ x: 2250, y: 990 }, { x: 2640, y: 980 }];
+/** Touch the cage (come this close) to free everyone inside. */
+export const CAGE_REACH = 128;
+
+/** Dirt paths (decoration). */
 export const PATHS: Line[] = [
-  [[300, 1130], [470, 1090], [700, 1010], [900, 985], [1150, 995], [1450, 1000], [1750, 1010], [2000, 985], [2160, 1030]],
-  [[260, 420], [600, 385], [900, 405], [1196, 400], [1500, 420], [1800, 455], [1950, 440]],
-  [[700, 1010], [760, 800], [820, 600], [900, 405]],
-  [[1750, 1010], [1700, 800], [1650, 600], [1600, 436]],
+  [[520, 1560], [760, 1520], [980, 1600], [1200, 1560], [1500, 1470], [1850, 1440], [2200, 1300], [2450, 1250], [2750, 1290], [2980, 1330], [3200, 1500], [3450, 1600]],
+  [[300, 640], [700, 600], [950, 560], [1250, 690], [1530, 720], [1900, 700], [2250, 560], [2450, 470], [2700, 470], [2880, 460], [2935, 330], [2950, 240]],
+  [[700, 600], [650, 900], [700, 1200], [760, 1520]],
+  [[2450, 1250], [2380, 920], [2300, 700], [2250, 560]],
+  [[2450, 1250], [2580, 1500], [2650, 1680]],
 ];
 
 /** Thickets: tree clusters you have to hop around. */
 export const GROVES: Ellipse[] = [
-  { x: 520, y: 600, rx: 120, ry: 66 }, { x: 1680, y: 1170, rx: 112, ry: 56 }, { x: 1940, y: 720, rx: 92, ry: 54 }, { x: 900, y: 1170, rx: 86, ry: 48 },
-];
-export const TREES: [number, number][] = [
-  [330, 760], [430, 900], [960, 290], [1500, 280], [1580, 640], [2220, 600], [2290, 300], [2280, 860],
-  [1450, 1190], [1150, 1230], [320, 300], [640, 1240], [1980, 1240], [1380, 560], [2100, 1160],
-];
-export const ROCKS: [number, number, boolean][] = [
-  [760, 700, true], [1500, 560, true], [1630, 900, true], [2160, 1240, false], [400, 520, false], [1010, 1080, true],
-  [2020, 880, true], [1360, 330, false], [2290, 460, true], [290, 960, false], [1290, 1080, false], [620, 820, false],
+  { x: 1100, y: 400, rx: 120, ry: 64 }, { x: 2000, y: 980, rx: 116, ry: 62 }, { x: 3300, y: 900, rx: 130, ry: 70 }, { x: 2000, y: 1700, rx: 120, ry: 60 },
+  { x: 1400, y: 1760, rx: 110, ry: 56 }, { x: 3330, y: 1830, rx: 110, ry: 56 }, { x: 480, y: 1060, rx: 110, ry: 60 }, { x: 2740, y: 760, rx: 110, ry: 60 },
 ];
 const HUT = { x: STATION.x, y: STATION.y, r: 62 };
 
-/** The cave (its mouth), the clearing in front of it and the trail that leads there. */
-export const CAVE = { x: 2470, y: 1294, radius: 38 };
-export const CAVE_EXIT: Point = { x: 2400, y: 1344 };
-const HIDEOUT: Ellipse = { x: 2440, y: 1330, rx: 90, ry: 58 };
-export const CAVE_TRAIL: Line = [[2230, 1110], [2290, 1180], [2335, 1245], [2400, 1310]];
-const TRAIL_WIDTH = 40;
+/** The cave (its mouth), the clearing in front of it and the short trail that leads there. */
+export const CAVE = { x: 2950, y: 196, radius: 40 };
+export const CAVE_EXIT: Point = { x: 2950, y: 330 };
+const HIDEOUT: Ellipse = { x: 2950, y: 250, rx: 124, ry: 72 };
+const CAVE_TRAIL: Line = [[2880, 470], [2935, 330], [2950, 240]];
+const TRAIL_WIDTH = 46;
 
 /** A spot that's always open, south of the lake. */
-export const SPAWN: Point = { x: 1150, y: 1080 };
+export const SPAWN: Point = { x: 1500, y: 1530 };
 
 // ---------------------------------------------------------------- geometry
 
@@ -99,19 +112,42 @@ export const forestDepth = (x: number, y: number): number => areaDistance(x, y) 
 /** The cave clearing and its trail. */
 export const inHideout = (x: number, y: number, margin = 0): boolean => inEllipse(HIDEOUT, x, y, -margin) || distanceToLine(x, y, CAVE_TRAIL) < TRAIL_WIDTH - margin;
 
+/** Inside the cave's mouth (only possible once the boulder has rolled away). */
+export const inCave = (x: number, y: number): boolean => Math.hypot(x - CAVE.x, y - CAVE.y) < CAVE.radius;
+
+let caveOpen = false;
+/** The boulder blocks the cave in the first round; it rolls away for the last two. */
+export function setCaveOpen(open: boolean): void { caveOpen = open; }
+export const isCaveOpen = (): boolean => caveOpen;
+
 const onCrossing = (x: number, y: number): boolean => CROSSINGS.some(c => Math.abs(x - c.x) < c.w / 2 && Math.abs(y - c.y) < c.h / 2);
 
-/** Water: the lake, the pond and the stream (except where you can cross it). */
+/** Water: the lake, the ponds, the stream and the river (except where you can cross). */
 export function inWater(x: number, y: number, margin = 0): boolean {
-  if (inEllipse(LAKE, x, y, margin) || inEllipse(POND, x, y, margin)) return true;
-  return distanceToLine(x, y, STREAM.points) < STREAM.width + margin && !onCrossing(x, y);
+  for (const water of WATERS) if (inEllipse(water, x, y, margin)) return true;
+  return STREAMS.some(stream => distanceToLine(x, y, stream.points) < stream.width + margin) && !onCrossing(x, y);
 }
 
-/** Trunks, boulders, thickets and the research hut. */
+// ---------------------------------------------------------------- generated layout
+
+/** Single trees and boulders: placed once, the same on every device. */
+export const TREES: [number, number][] = [];
+export const ROCKS: [number, number, boolean][] = [];
+
+export type HideKind = 'bush' | 'log' | 'grass';
+export interface Hide extends Ellipse { kind: HideKind }
+/** Hiding places: a frog inside one can't be seen from far away. */
+export const HIDES: Hide[] = [];
+const HIDE_SIZE: Record<HideKind, [number, number]> = { bush: [56, 36], log: [58, 24], grass: [78, 42] };
+
+/** Trunks, boulders, thickets, tents, the cage, the pot and the research hut. */
 export function inSolid(x: number, y: number, margin = 0): boolean {
   for (const [tx, ty] of TREES) if (Math.hypot(x - tx, y - ty) < 20 + margin) return true;
   for (const [rx, ry, big] of ROCKS) if (Math.hypot(x - rx, (y - ry) * 1.3) < (big ? 34 : 18) + margin) return true;
   for (const grove of GROVES) if (inEllipse(grove, x, y, margin)) return true;
+  for (const tent of TENTS) if (Math.hypot(x - tent.x, (y - tent.y) * 1.3) < 58 + margin) return true;
+  if (Math.hypot(x - CAGE.x, (y - CAGE.y) * 1.2) < CAGE.radius + margin) return true;
+  if (Math.hypot(x - POT.x, (y - POT.y) * 1.3) < 38 + margin) return true;
   return Math.hypot(x - HUT.x, y - HUT.y) < HUT.r + margin;
 }
 
@@ -119,15 +155,17 @@ export function inSolid(x: number, y: number, margin = 0): boolean {
 export function walkable(x: number, y: number, margin = FROG_RADIUS): boolean {
   if (x < margin || y < margin || x > MAP.width - margin || y > MAP.height - margin) return false;
   if (forestDepth(x, y) + margin > 0 && !inHideout(x, y, margin)) return false;
+  if (!caveOpen && Math.hypot(x - CAVE.x, (y - CAVE.y) * 1.2) < 58 + margin) return false; // the boulder
   return !inWater(x, y, margin * .5) && !inSolid(x, y, margin);
 }
 
 /** Moves a frog, sliding along walls and shores instead of stopping dead. */
-export function step(x: number, y: number, dx: number, dy: number, margin = FROG_RADIUS): Point {
+export function step(x: number, y: number, dx: number, dy: number, margin = FROG_RADIUS, allowed: (x: number, y: number) => boolean = () => true): Point {
   if (!dx && !dy) return { x, y };
-  if (walkable(x + dx, y + dy, margin)) return { x: x + dx, y: y + dy };
-  if (dx && walkable(x + dx, y, margin)) return { x: x + dx, y };
-  if (dy && walkable(x, y + dy, margin)) return { x, y: y + dy };
+  const ok = (px: number, py: number) => walkable(px, py, margin) && allowed(px, py);
+  if (ok(x + dx, y + dy)) return { x: x + dx, y: y + dy };
+  if (dx && ok(x + dx, y)) return { x: x + dx, y };
+  if (dy && ok(x, y + dy)) return { x, y: y + dy };
   return { x, y };
 }
 
@@ -136,6 +174,11 @@ export function clearLine(a: Point, b: Point, test: (x: number, y: number) => bo
   const steps = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 16);
   for (let i = 1; i <= steps; i++) if (!test(a.x + (b.x - a.x) * i / steps, a.y + (b.y - a.y) * i / steps)) return false;
   return true;
+}
+
+/** The hiding place at this spot, if any. */
+export function hideAt(x: number, y: number): Hide | undefined {
+  return HIDES.find(hide => inEllipse(hide, x, y));
 }
 
 /** A random open spot out in the forest (never in the cave clearing), away from the given places. */
@@ -147,6 +190,50 @@ export function randomSpot(avoid: (Point & { r: number })[] = [], random = Math.
   }
   return { ...SPAWN };
 }
+
+/** Where the n-th caught frog sits inside the cage. */
+export function cageSlot(n: number): Point {
+  const column = n % 4, row = Math.floor(n / 4) % 3;
+  return { x: CAGE.x - 33 + column * 22, y: CAGE.y - 4 + row * 14 };
+}
+
+/** A small seeded random generator, so every device builds the same forest. */
+function seeded(seed: number): () => number {
+  return () => {
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Places trees, boulders and hiding places in the open, clear of paths, water and each other. */
+function layout(): void {
+  const random = seeded(4242);
+  const placed: (Point & { r: number })[] = [];
+  const clear = (x: number, y: number, r: number) =>
+    forestDepth(x, y) < -r - 30 && !inHideout(x, y, -r - 40) && !inWater(x, y, r + 30) && !inSolid(x, y, r + 40)
+    && !inEllipse(CAMP, x, y, r) && !PATHS.some(path => distanceToLine(x, y, path) < r + 24)
+    && !POOLS.some(pool => Math.hypot(x - pool.x, y - pool.y) < r + 130)
+    && !CROSSINGS.some(c => Math.hypot(x - c.x, y - c.y) < r + 110)
+    && Math.hypot(x - SPAWN.x, y - SPAWN.y) > r + 80
+    && placed.every(item => Math.hypot(x - item.x, y - item.y) > item.r + r + 70);
+  const place = (count: number, r: number, add: (x: number, y: number) => void) => {
+    for (let i = 0, tries = 0; i < count && tries < count * 200; tries++) {
+      const x = Math.round(AREA.left + random() * (AREA.right - AREA.left)), y = Math.round(AREA.top + random() * (AREA.bottom - AREA.top));
+      if (!clear(x, y, r)) continue;
+      placed.push({ x, y, r });
+      add(x, y); i++;
+    }
+  };
+  const hide = (kind: HideKind) => (x: number, y: number) => HIDES.push({ kind, x, y, rx: HIDE_SIZE[kind][0], ry: HIDE_SIZE[kind][1] });
+  place(26, 60, hide('bush'));
+  place(10, 60, hide('log'));
+  place(12, 78, hide('grass'));
+  place(34, 26, (x, y) => TREES.push([x, y]));
+  place(24, 34, (x, y) => ROCKS.push([x, y, random() < .55]));
+}
+layout();
 
 // ---------------------------------------------------------------- scenery
 
@@ -164,20 +251,10 @@ export interface Decor {
   shade?: number;
 }
 
-/** A small seeded random generator, so every device builds the same forest. */
-function seeded(seed: number): () => number {
-  return () => {
-    seed = (seed + 0x6d2b79f5) | 0;
-    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
 function buildDecor(): Decor[] {
   const random = seeded(1729);
   const decor: Decor[] = [];
-  const caveArt = { left: 2320, right: 2600, top: 1080, bottom: 1300 };
+  const caveArt = { left: CAVE.x - 170, right: CAVE.x + 170, top: 0, bottom: CAVE.y + 70 };
   const volcanoArt = { left: VOLCANO.x - 170, right: VOLCANO.x + 170, top: 0, bottom: VOLCANO.y + 10 };
   const within = (box: { left: number; right: number; top: number; bottom: number }, x: number, y: number) => x > box.left && x < box.right && y > box.top && y < box.bottom;
 
@@ -210,38 +287,50 @@ function buildDecor(): Decor[] {
   for (const [x, y] of TREES) decor.push({ key: random() < .75 ? 'tree' : 'palm', x, y: y + 6, scale: 3.6, flip: random() < .5, tall: true });
   for (const [x, y, big] of ROCKS) decor.push({ key: big ? 'rock' : 'rock-small', x, y: y + 10, scale: 4, flip: random() < .5 });
 
-  // The lake and the stream.
-  for (let i = 0; i < 16; i++) {
+  // Hiding places: drawn in front of a frog that's inside.
+  for (const hide of HIDES) {
+    if (hide.kind === 'bush') decor.push({ key: 'hide-bush', x: hide.x, y: hide.y + 30, scale: 4, flip: random() < .5 });
+    else if (hide.kind === 'log') decor.push({ key: 'hollow-log', x: hide.x, y: hide.y + 24, scale: 4, flip: random() < .5 });
+    else decor.push({ key: 'tall-grass', x: hide.x, y: hide.y + 34, scale: 4, flip: random() < .5 });
+  }
+
+  // The lake, the ponds and the water crossings.
+  for (let i = 0; i < 20; i++) {
     const angle = random() * Math.PI * 2, d = .2 + random() * .7;
     decor.push({ key: random() < .25 ? 'lily-flower' : 'lilypad', x: Math.round(LAKE.x + Math.cos(angle) * LAKE.rx * d), y: Math.round(LAKE.y + Math.sin(angle) * LAKE.ry * d), scale: 4, flip: random() < .5, depth: -40 });
   }
-  for (let i = 0; i < 4; i++) decor.push({ key: 'lilypad', x: Math.round(POND.x - 60 + i * 38), y: Math.round(POND.y - 10 + (i % 2) * 22), scale: 4, depth: -40 });
-  for (let i = 0; i < 22; i++) {
+  for (const pond of [POND, POND_SOUTH]) for (let i = 0; i < 3; i++) decor.push({ key: 'lilypad', x: Math.round(pond.x - 50 + i * 40), y: Math.round(pond.y - 8 + (i % 2) * 20), scale: 4, depth: -40 });
+  for (let i = 0; i < 28; i++) {
     const angle = random() * Math.PI * 2;
-    const water = i < 16 ? LAKE : POND;
+    const water = i < 18 ? LAKE : i < 24 ? POND : POND_SOUTH;
     decor.push({ key: 'reeds', x: Math.round(water.x + Math.cos(angle) * (water.rx + 10)), y: Math.round(water.y + Math.sin(angle) * (water.ry + 8)), scale: 4, flip: random() < .5 });
   }
   for (const crossing of CROSSINGS) decor.push({ key: crossing.kind, x: crossing.x, y: crossing.y + (crossing.kind === 'bridge' ? 26 : 18), scale: 4, depth: -30 });
 
-  // The research station and the volcano.
+  // The research station, the hunters' camp and the volcano.
   decor.push({ key: 'hut', x: STATION.x, y: STATION.y + 40, scale: 4, tall: true });
   decor.push({ key: 'solar', x: STATION.x + 120, y: STATION.y - 10, scale: 4 });
   decor.push({ key: 'researcher-2', x: STATION.x + 96, y: STATION.y + 70, scale: 4 });
+  for (const tent of TENTS) decor.push({ key: 'tent', x: tent.x, y: tent.y + 40, scale: 4, flip: tent.x > CAMP.x, tall: true });
+  decor.push({ key: 'jail', x: CAGE.x, y: CAGE.y + 46, scale: 4 });
+  decor.push({ key: 'campfire', x: POT.x, y: POT.y + 34, scale: 4 });
+  decor.push({ key: 'pot', x: POT.x, y: POT.y + 22, scale: 4 });
+  for (const [x, y] of [[2300, 1220], [2530, 1240], [2690, 1100]]) decor.push({ key: 'log', x, y, scale: 4, flip: x > CAMP.x });
   decor.push({ key: 'volcano', x: VOLCANO.x, y: VOLCANO.y, scale: 5, depth: VOLCANO.y - 40 });
 
   // Flowers, ferns, mushrooms and logs scattered about.
   const small = ['flower', 'fern', 'flower', 'fern', 'bush', 'shrooms', 'stump', 'log'];
-  for (let i = 0, tries = 0; i < 90 && tries < 2000; tries++) {
+  for (let i = 0, tries = 0; i < 170 && tries < 4000; tries++) {
     const x = Math.round(AREA.left + random() * (AREA.right - AREA.left)), y = Math.round(AREA.top + random() * (AREA.bottom - AREA.top));
-    if (!walkable(x, y, 30) || inHideout(x, y, -60) || PATHS.some(path => distanceToLine(x, y, path) < 34) || POOLS.some(pool => Math.hypot(x - pool.x, y - pool.y) < 140)) continue;
+    if (!walkable(x, y, 30) || inHideout(x, y, -60) || inEllipse(CAMP, x, y) || hideAt(x, y) || PATHS.some(path => distanceToLine(x, y, path) < 34) || POOLS.some(pool => Math.hypot(x - pool.x, y - pool.y) < 140)) continue;
     decor.push({ key: small[i % small.length], x, y, scale: 4, flip: random() < .5 });
     i++;
   }
 
-  // The cave, deep in its corner. Glowing mushrooms dot the trail, if anyone notices them.
+  // The cave, with glowing mushrooms lining the path up to it.
   decor.push({ key: 'cave', x: CAVE.x, y: CAVE.y + 18, scale: 4 });
-  for (const [x, y] of [[2268, 1150], [2318, 1214], [2372, 1268], [2392, 1370], [2520, 1340], [2350, 1300]]) decor.push({ key: 'glow-shrooms', x, y, scale: 4 });
-  for (const [x, y] of [[2300, 1120], [2370, 1200], [2250, 1210], [2340, 1370]]) decor.push({ key: random() < .5 ? 'fern' : 'bush', x, y, scale: 4, flip: random() < .5 });
+  for (const [x, y] of [[2840, 480], [2905, 420], [2880, 330], [3000, 330], [2990, 420], [2830, 270], [3070, 280], [2955, 520]]) decor.push({ key: 'glow-shrooms', x, y, scale: 4 });
+  for (const [x, y] of [[2810, 360], [3090, 360]]) decor.push({ key: 'fern', x, y, scale: 4, flip: x > CAVE.x });
   return decor;
 }
 

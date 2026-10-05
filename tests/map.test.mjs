@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MAP, SPAWN, POOLS, CAVE, CAVE_EXIT, CROSSINGS, LAKE, DECOR, walkable, step, inWater, inHideout, randomSpot, clearLine } from '../src/world/map.ts';
+import { MAP, SPAWN, POOLS, CAVE, CAVE_EXIT, CAGE, CAGE_REACH, CROSSINGS, LAKE, DECOR, HIDES, walkable, step, inWater, inHideout, inCave, hideAt, randomSpot, clearLine, setCaveOpen } from '../src/world/map.ts';
 
 /** Every open cell (24 px) a frog can reach from the spawn point, hopping in 8 directions. */
 function reachable() {
@@ -29,11 +29,18 @@ function reachable() {
   };
 }
 
-test('the map is one connected forest: every spring, both stream banks and the hidden cave can be reached', () => {
+test('the map is one connected forest: every spring, hiding place, both banks, the cage and the cave can be reached', () => {
+  setCaveOpen(true);
   assert.ok(walkable(SPAWN.x, SPAWN.y), 'the spawn point is open');
   const canReach = reachable();
   for (const pool of POOLS) assert.ok(canReach(pool.x, pool.y), `the warm spring at ${pool.x},${pool.y}`);
-  assert.ok(canReach(CAVE.x, CAVE.y), 'the cave mouth');
+  assert.ok(canReach(CAVE.x, CAVE.y) && walkable(CAVE.x, CAVE.y) && inCave(CAVE.x, CAVE.y), 'the cave mouth');
+  assert.ok(HIDES.length >= 40, `${HIDES.length} hiding places`);
+  for (const hide of HIDES) assert.ok(canReach(hide.x, hide.y) && hideAt(hide.x, hide.y) === hide, `${hide.kind} at ${hide.x},${hide.y}`);
+  // Free frogs can get close enough to the cage to open it.
+  let sides = 0;
+  for (let a = 0; a < 16; a++) { const x = CAGE.x + Math.cos(a / 16 * Math.PI * 2) * (CAGE_REACH - 20), y = CAGE.y + Math.sin(a / 16 * Math.PI * 2) * (CAGE_REACH - 20); if (walkable(x, y) && canReach(x, y)) sides++; }
+  assert.ok(sides >= 8, `the cage can be reached from ${sides} sides`);
   assert.ok(canReach(CAVE_EXIT.x, CAVE_EXIT.y), 'the cave clearing');
   for (const crossing of CROSSINGS) {
     assert.ok(walkable(crossing.x, crossing.y), `the middle of the ${crossing.kind}`);
@@ -58,9 +65,14 @@ test('frogs slide along shores and can\'t swim', () => {
   assert.ok(!clearLine({ x: LAKE.x, y: LAKE.y + 300 }, { x: LAKE.x, y: LAKE.y - 300 }));
 });
 
-test('the cave is tucked away: off the open forest floor, out of the way of spawns', () => {
-  assert.ok(inHideout(CAVE.x, CAVE.y) && inHideout(CAVE_EXIT.x, CAVE_EXIT.y));
+test('the cave sits at the forest edge, blocked by a boulder until it opens', () => {
+  setCaveOpen(false);
+  assert.ok(!walkable(CAVE.x, CAVE.y), 'the boulder blocks the mouth in round 1');
+  assert.ok(walkable(CAVE_EXIT.x, CAVE_EXIT.y), 'the clearing in front is open');
+  setCaveOpen(true);
+  assert.ok(inHideout(CAVE.x, CAVE.y) && walkable(CAVE.x, CAVE.y));
   assert.ok(Math.hypot(CAVE.x - SPAWN.x, CAVE.y - SPAWN.y) > 1000);
+  assert.ok(MAP.width >= 3840 && MAP.height >= 2160, 'a big map');
   assert.ok(DECOR.some(item => item.key === 'cave'));
   assert.ok(!DECOR.some(item => item.key === 'sign'), 'no warning sign');
   // Scenery stays on the map.

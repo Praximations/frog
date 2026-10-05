@@ -40,10 +40,10 @@
           "$id": {
             ".validate": "newData.hasChildren(['x', 'y', 'f', 'm', 's'])",
             "x": {
-              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 2560"
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3840"
             },
             "y": {
-              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1440"
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 2160"
             },
             "f": {
               ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3"

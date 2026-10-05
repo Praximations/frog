@@ -8,7 +8,7 @@ export const REACTIONS = ['🐸', '❤️', '😱', '👏', '🔥', '🦗'];
 /** How many frog skins, hats and colours a player can pick from (src/data/looks.ts names them). */
 export const LOOKS = { skins: 6, hats: 8, colors: 20 };
 /** The map size: player positions must be inside it. */
-export const WORLD_SIZE = { width: 2560, height: 1440 };
+export const WORLD_SIZE = { width: 3840, height: 2160 };
 /** Biggest world snapshot the projector may send (characters of JSON). */
 export const WORLD_BYTES = 24000;
 

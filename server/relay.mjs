@@ -14,7 +14,7 @@ export { cleanName, REACTIONS };
 export const LIMITS = { rooms: 30, playersPerRoom: PLAYERS_PER_ROOM, clients: 600, nameLength: NAME_LENGTH, stateBytes: 3000, privateBytes: 1000, worldBytes: WORLD_BYTES };
 /** Messages per second: the projector sends world snapshots plus a message per player at times. */
 const RATE = { host: 600, player: 40 };
-export const MODES = ['lobby', 'intro', 'round', 'quiz', 'reveal', 'results', 'learn', 'final', 'paused'];
+export const MODES = ['lobby', 'intro', 'round', 'quiz', 'reveal', 'cooking', 'results', 'learn', 'final', 'paused'];
 
 const send = (socket, value) => { if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(value)); };
 const jsonSize = value => { try { return JSON.stringify(value).length; } catch { return Infinity; } };

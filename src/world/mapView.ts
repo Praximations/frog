@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { ensureArt } from './Art';
 import { paintTerrain, PALETTES, SCALE } from './Terrain';
-import { CAVE, DECOR, GLOWS, LAKE, MAP, PATHS, POND, POOLS, STREAM, VOLCANO, forestDepth, inHideout, type Point } from './map';
+import { CAMP, CAVE, DECOR, GLOWS, HIDES, LAKE, MAP, PATHS, POND, POND_SOUTH, POOLS, POT, STREAMS, VOLCANO, forestDepth, inHideout, isCaveOpen, type Hide, type Point } from './map';
 
 const DAY = Phaser.Display.Color.ValueToColor(0xffffff);
 const NIGHT = Phaser.Display.Color.ValueToColor(0x56668a);
@@ -11,7 +11,8 @@ interface Tall { image: Phaser.GameObjects.Image; left: number; right: number; t
 
 /**
  * Draws the shared map (src/world/map.ts) into a scene: the painted ground, the forest, the lake,
- * the springs and the hidden cave. Used by the projector's overview and by every player's screen.
+ * the springs, the hunters' camp, the hiding places and the cave. Used by the projector's overview
+ * and by every player's screen.
  * Trees and huts go see-through when a frog is behind them, so nobody gets lost behind a canopy.
  */
 export class MapView {
@@ -21,6 +22,10 @@ export class MapView {
   private grid = new Map<number, Tall[]>();
   private darkness: Phaser.GameObjects.Rectangle;
   private level = 0;
+  private boulder: Phaser.GameObjects.Image;
+  private caveShown = false;
+  private hideImages = new Map<Hide, Phaser.GameObjects.Image>();
+  private rustled = new Map<Hide, number>();
 
   constructor(private readonly scene: Phaser.Scene) {
     ensureArt(scene);
@@ -34,11 +39,15 @@ export class MapView {
       this.shades.push(item.shade ?? 0);
       if (item.tall) this.addTall(image);
     }
+    for (const hide of HIDES) {
+      const image = this.decor.find(item => item.x === hide.x && ['hide-bush', 'hollow-log', 'tall-grass'].includes(item.texture.key) && Math.abs(item.y - hide.y) < 40);
+      if (image) this.hideImages.set(hide, image);
+    }
     this.setDarkness(0, false);
 
     // Life: sparkles on the water, steam off the warm springs and the volcano.
-    for (let i = 0; i < 14; i++) {
-      const water = i < 11 ? LAKE : POND;
+    for (let i = 0; i < 18; i++) {
+      const water = i < 12 ? LAKE : i < 15 ? POND : POND_SOUTH;
       const angle = Math.random() * Math.PI * 2, d = Math.random() * .8;
       const sparkle = scene.add.image(water.x + Math.cos(angle) * water.rx * d, water.y + Math.sin(angle) * water.ry * d, 'sparkle').setScale(3).setDepth(-35).setAlpha(0);
       scene.tweens.add({ targets: sparkle, alpha: .9, duration: 500, yoyo: true, repeat: -1, repeatDelay: 1200 + Math.random() * 2600, delay: Math.random() * 3000 });
@@ -50,13 +59,41 @@ export class MapView {
     }
     scene.add.particles(VOLCANO.x, VOLCANO.y - 156, 'steam', { lifespan: 4200, speedY: { min: -26, max: -12 }, speedX: { min: 4, max: 14 }, scale: { start: 3, end: 9 }, alpha: { start: .4, end: 0 }, frequency: 500, tint: 0xb8b0a8 }).setDepth(VOLCANO.y - 39);
 
-    // The cave: a faint glow from its mushrooms and crystals, fireflies, and eyes that blink now and then.
+    // The hunters' camp: a crackling fire under the pot.
+    const fire = this.decor.find(item => item.texture.key === 'campfire');
+    if (fire) scene.time.addEvent({ delay: 180, loop: true, callback: () => fire.setTexture(fire.texture.key === 'campfire' ? 'campfire-1' : 'campfire') });
+    const fireGlow = scene.add.image(POT.x, POT.y + 20, 'glow').setScale(7).setTint(0xff8a3a).setAlpha(.35).setBlendMode(Phaser.BlendModes.ADD).setDepth(4300);
+    scene.tweens.add({ targets: fireGlow, alpha: .5, scale: 7.6, duration: 260, yoyo: true, repeat: -1 });
+    scene.add.particles(POT.x, POT.y - 40, 'steam', { lifespan: 1800, speedY: { min: -40, max: -20 }, scale: { start: 2, end: 5 }, alpha: { start: .5, end: 0 }, frequency: 300, x: { min: -20, max: 20 } }).setDepth(POT.y + 30);
+
+    // The cave: a glow from its mushrooms and crystals, fireflies, and eyes that blink now and then.
     for (const glow of GLOWS) scene.add.image(glow.x, glow.y, 'glow').setScale(2.6).setTint(0x3ad0c0).setAlpha(.32).setBlendMode(Phaser.BlendModes.ADD).setDepth(4300);
     const crystals = scene.add.image(CAVE.x, CAVE.y - 6, 'glow').setScale(3.4).setTint(0x8a6aff).setAlpha(.2).setBlendMode(Phaser.BlendModes.ADD).setDepth(CAVE.y + 19);
     scene.tweens.add({ targets: crystals, alpha: .38, duration: 1800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     const eyes = scene.add.image(CAVE.x, CAVE.y - 10, 'cave-eyes').setScale(4).setDepth(CAVE.y + 19).setAlpha(0);
     scene.tweens.add({ targets: eyes, alpha: 1, duration: 500, hold: 900, yoyo: true, repeat: -1, repeatDelay: 7000, delay: 4000 });
-    scene.add.particles(0, 0, 'firefly', { x: { min: CAVE.x - 150, max: CAVE.x + 60 }, y: { min: CAVE.y - 120, max: CAVE.y + 80 }, lifespan: 3000, speed: { min: 3, max: 12 }, scale: { start: 2.2, end: 0 }, alpha: { start: .9, end: 0 }, frequency: 700, blendMode: 'ADD' }).setDepth(4300);
+    scene.add.particles(0, 0, 'firefly', { x: { min: CAVE.x - 160, max: CAVE.x + 160 }, y: { min: CAVE.y - 60, max: CAVE.y + 260 }, lifespan: 3000, speed: { min: 3, max: 12 }, scale: { start: 2.2, end: 0 }, alpha: { start: .9, end: 0 }, frequency: 500, blendMode: 'ADD' }).setDepth(4300);
+    // In the first round a boulder blocks the way in.
+    this.boulder = scene.add.image(CAVE.x, CAVE.y + 42, 'boulder').setOrigin(.5, .9).setScale(4).setDepth(CAVE.y + 44);
+    this.setCave(isCaveOpen(), false);
+  }
+
+  /** Rolls the boulder away from the cave (or back). */
+  setCave(open: boolean, animate = true): void {
+    if (open === this.caveShown && animate) return;
+    this.caveShown = open;
+    this.scene.tweens.killTweensOf(this.boulder);
+    if (!animate) { this.boulder.setPosition(open ? CAVE.x + 150 : CAVE.x, CAVE.y + 42).setAngle(open ? 90 : 0).setAlpha(open ? 0 : 1); return; }
+    this.scene.tweens.add({ targets: this.boulder, x: open ? CAVE.x + 150 : CAVE.x, angle: open ? 180 : 0, alpha: open ? 0 : 1, duration: 1200, ease: 'Quad.easeOut' });
+  }
+
+  /** A frog moving inside a hiding place makes it shake a little. */
+  rustle(hide: Hide): void {
+    const image = this.hideImages.get(hide);
+    const now = this.scene.time.now;
+    if (!image || now - (this.rustled.get(hide) ?? 0) < 500) return;
+    this.rustled.set(hide, now);
+    this.scene.tweens.add({ targets: image, x: hide.x + 3, duration: 60, yoyo: true, repeat: 2, onComplete: () => image.setX(hide.x) });
   }
 
   /** 0 = daytime, 1 = full night. Only the ground and scenery darken, so frogs stay easy to see. */
@@ -128,8 +165,9 @@ function paintGround(): HTMLCanvasElement {
   return paintTerrain({
     key: 'map-ground', width: MAP.width * k, height: MAP.height * k, palette: PALETTES.day, pathWidth: 4,
     paths: PATHS.map(path => path.map(([x, y]) => [x * k, y * k] as [number, number])),
-    rivers: [{ points: STREAM.points.map(([x, y]) => [x * k, y * k] as [number, number]), width: STREAM.width * k }],
-    ponds: [LAKE, POND].map(water => [water.x * k, water.y * k, water.rx * k, water.ry * k] as [number, number, number, number]),
+    clearings: [[CAMP.x * k, CAMP.y * k, CAMP.rx * k, CAMP.ry * k]],
+    rivers: STREAMS.map(stream => ({ points: stream.points.map(([x, y]) => [x * k, y * k] as [number, number]), width: stream.width * k })),
+    ponds: [LAKE, POND, POND_SOUTH].map(water => [water.x * k, water.y * k, water.rx * k, water.ry * k] as [number, number, number, number]),
     floor: (x, y, n) => {
       const wx = x * SCALE + 2, wy = y * SCALE + 2;
       if (inHideout(wx, wy, -6)) return moss[n % moss.length];

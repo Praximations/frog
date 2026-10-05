@@ -35,6 +35,13 @@ export const QUESTIONS: Question[] = [
     art: ['portrait'], sources: ['wikipedia'],
   },
   {
+    id: 'other-name', round: 'feast', topic: 'Name',
+    question: 'What is another name for the mountain chicken?',
+    answers: ['Cane toad', 'Swamp bullfrog', 'Rain chicken', 'Giant ditch frog'], correct: 3,
+    fact: 'It\'s also called the giant ditch frog. On Dominica, people call it "crapaud".',
+    art: ['frog-down-0'], sources: ['wikipedia'],
+  },
+  {
     id: 'size', round: 'feast', topic: 'Physical description',
     question: 'How big can a mountain chicken grow?',
     answers: ['5 cm, like a grape', '22 cm and 1 kg', '1 metre long', '2 cm, like a fly'], correct: 1,
@@ -69,7 +76,7 @@ export const QUESTIONS: Question[] = [
     fact: 'Animals brought to the islands by people, like feral pigs, cats, dogs and opossums, eat the frogs.',
     art: ['pig'], sources: ['darwin-factsheet'],
   },
-  // Round 2, Hunter Night: status, habitat and threats.
+  // Round 2, Hide From Humans: status, habitat and threats.
   {
     id: 'status', round: 'night', topic: 'Status',
     question: 'What is the mountain chicken\'s conservation status?',

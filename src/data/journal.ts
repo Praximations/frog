@@ -20,6 +20,7 @@ export interface JournalCard {
 
 export const SPECIES = {
   commonName: 'Mountain chicken',
+  otherName: 'Giant ditch frog',
   scientificName: 'Leptodactylus fallax',
   status: 'Critically Endangered',
   statusSince: 2004,
@@ -44,7 +45,7 @@ export const JOURNAL: JournalCard[] = [
     key: 'name', number: 1, rubric: 'Name',
     title: 'Mountain chicken',
     line: 'Scientific name: Leptodactylus fallax',
-    points: ['It\'s a frog, not a chicken!', 'Called "crapaud" on Dominica', 'Named "chicken" because people said it tasted like one'],
+    points: ['It\'s a frog, not a chicken!', 'Also called the giant ditch frog', 'Called "crapaud" on Dominica', 'Named "chicken" because people said it tasted like one'],
     visual: 'nameplate',
     sources: ['wikipedia', 'biographic'],
   },

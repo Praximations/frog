@@ -1,9 +1,10 @@
 import Phaser from 'phaser';
 import { PartyFrog } from '../entities/PartyFrog';
 import { PondGame, type GameContext } from '../play/PondGame';
-import { CAVE, CAVE_EXIT, MAP, clearLine, randomSpot, step, walkable, type Point } from '../world/map';
+import { CAGE, CAMP, CAVE, CAVE_EXIT, MAP, cageSlot, clearLine, inCave, isCaveOpen, randomSpot, setCaveOpen, step, walkable, type Point } from '../world/map';
 import { MapView } from '../world/mapView';
-import { BOOSTS, GAME, ROUNDS, questionTimes, type BoostKind, type RoundInfo } from '../data/game';
+import { BOOSTS, EVENTS, GAME, ROUNDS, eventTime, humansFor, questionTimes, type BoostKind, type EventKind, type RoundInfo } from '../data/game';
+import { frogHtml } from '../ui/frogArt';
 import { formatLook, lookColor, parseLook, randomLook } from '../data/looks';
 import { pickQuestions, type Question } from '../data/quiz';
 import { cardByKey, type RubricKey } from '../data/journal';
@@ -20,12 +21,16 @@ import { rulesHtml } from '../ui/rules';
 import { banner, floatReaction, jumpscare, qrSvg } from '../ui/effects';
 import { esc, $ } from '../ui/html';
 
-type Phase = 'lobby' | 'howto' | 'roundIntro' | 'countdown' | 'play' | 'quiz' | 'reveal' | 'results' | 'info' | 'over';
+type Phase = 'lobby' | 'howto' | 'roundIntro' | 'countdown' | 'play' | 'quiz' | 'reveal' | 'cooking' | 'results' | 'info' | 'over';
 const SHAPES = ['▲', '◆', '●', '■'];
 /** The projector shows the whole map. */
 const ZOOM = 1280 / MAP.width;
 /** Text in the world is drawn bigger, because the overview is zoomed out. */
-const TEXT = 1.5;
+const TEXT = 2.2;
+/** Frogs are drawn bigger on the overview too, so they're easy to spot on the big map. */
+const FROG_SIZE = 1.35;
+/** Hide From Humans: the humans wait at their camp while the frogs run and hide. */
+const HEAD_START = 6000;
 
 export interface MatchResult { ranks: Ranked[]; seen: RubricKey[] }
 
@@ -65,6 +70,10 @@ export class PondScene extends Phaser.Scene {
   private shots = 0;
   private rosterChanged = true;
   private targets = new Map<string, Target>();
+  /** Frogs inside the cave right now. */
+  private inCave = new Set<string>();
+  private flashes = 0;
+  private nextFlash = 0;
   private botTargets = new Map<string, { x: number; y: number; until: number; from: Point; check: number }>();
   private context!: GameContext;
 
@@ -75,7 +84,8 @@ export class PondScene extends Phaser.Scene {
   create(): void {
     this.frogs = new Map(); this.phase = 'lobby'; this.play = undefined; this.roundIndex = -1; this.paused = false; this.holdUntil = 0;
     this.targets = new Map(); this.botTargets = new Map(); this.lastLeaders = ''; this.scaredProjector = false; this.seen = []; this.quiz = undefined; this.deck = undefined;
-    this.shots = 0; this.rosterChanged = true;
+    this.shots = 0; this.rosterChanged = true; this.inCave = new Set(); this.flashes = 0;
+    setCaveOpen(false);
     ensureArt(this);
     this.cameras.main.setZoom(ZOOM).centerOn(MAP.width / 2, MAP.height / 2);
     this.map = new MapView(this);
@@ -84,7 +94,10 @@ export class PondScene extends Phaser.Scene {
       scene: this,
       frogs: () => [...this.frogs.values()].filter(frog => frog.online),
       award: (frog, points, x, y) => this.award(frog, points, x, y),
-      caught: (frog, by, grabber) => this.caught(frog, by, grabber),
+      caught: (frog, by, grabber, catcher) => this.caught(frog, by, grabber, catcher),
+      freed: (frogs, by) => this.freed(frogs, by),
+      rustle: hide => this.map.rustle(hide),
+      shake: (ms, intensity) => this.cameras.main.shake(ms, intensity),
       knocked: (frog, dir) => this.knocked(frog, dir),
       boost: (frog, kind) => this.boost(frog, kind),
       sick: (frog, sick) => this.sick(frog, sick),
@@ -131,11 +144,12 @@ export class PondScene extends Phaser.Scene {
 
   // ---------------------------------------------------------------- players
 
-  private humans(): PartyFrog[] { return [...this.frogs.values()].filter(frog => !frog.isBot); }
+  /** Real players (not computer frogs). */
+  private people(): PartyFrog[] { return [...this.frogs.values()].filter(frog => !frog.isBot); }
 
   private addFrog(id: string, name: string, look: string, control: PartyFrog['control']): PartyFrog {
     const spot = randomSpot([...this.frogs.values()].map(frog => ({ x: frog.x, y: frog.y, r: 120 })));
-    const frog = new PartyFrog(this, { id, name, look: parseLook(look), control, tagSize: 34 }, spot.x, spot.y);
+    const frog = new PartyFrog(this, { id, name, look: parseLook(look), control, tagSize: 44, size: FROG_SIZE }, spot.x, spot.y);
     frog.onLand = (x, y, big) => this.dust.explode(big ? 12 : 3, x, y);
     frog.drop(this.time.now);
     this.frogs.set(id, frog);
@@ -173,10 +187,10 @@ export class PondScene extends Phaser.Scene {
     }
   }
 
-  /** Computer frogs join a very small game so it never feels empty. */
+  /** Computer frogs join only a very small game (fewer than 3 people), so it never feels empty. */
   private syncBots(): void {
     const bots = [...this.frogs.values()].filter(frog => frog.isBot);
-    const need = botsNeeded(this.humans().filter(frog => frog.online).length);
+    const need = botsNeeded(this.people().filter(frog => frog.online).length);
     for (let i = bots.length; i < need; i++) this.addFrog(`bot-${i}`, `Wild Frog ${i + 1}`, formatLook(randomLook()), 'bot');
     for (const bot of bots.slice(need)) { bot.destroy(); this.frogs.delete(bot.id); this.targets.delete(bot.id); this.rosterChanged = true; }
   }
@@ -198,7 +212,8 @@ export class PondScene extends Phaser.Scene {
     if (drop) frog.drop(this.time.now, drop);
   }
 
-  private caught(frog: PartyFrog, by: 'hunter' | 'trap', grabber: { x: number; y: number } | null): void {
+  private caught(frog: PartyFrog, by: 'hunter' | 'trap' | 'human', grabber: { x: number; y: number } | null, catcher?: PartyFrog): void {
+    if (this.round?.hide) { this.cage(frog, by, catcher); return; }
     const now = this.time.now, ms = 2600;
     frog.capture(now, grabber, ms);
     frog.frozenUntil = now + ms; frog.safeUntil = now + ms + 2600;
@@ -213,12 +228,52 @@ export class PondScene extends Phaser.Scene {
     if (grabber) this.float(grabber.x, grabber.y - 80, 'GOTCHA!', '#fff0b4', 18, 20, 1100);
     sound.play(by === 'trap' ? 'hurt' : 'spotted');
     if (frog.control === 'phone') classHost.sendTo(frog.id, { kind: 'caught', scare: settings.jumpscares, by });
+    this.scareProjector(frog);
+  }
+
+  /** The first catch of the game gets the full-screen jump-scare on the projector. */
+  private scareProjector(frog: PartyFrog): void {
+    const now = this.time.now;
     if (!this.scaredProjector) {
       // The first catch of the game gets the full-screen jump-scare on the projector.
       this.scaredProjector = true;
       this.holdUntil = now + (settings.jumpscares ? 1750 : 1350);
       jumpscare($(this.root, '#fx'), `${frog.name} got caught! People once hunted up to 36,000 of these frogs a year.`, () => undefined);
     }
+  }
+
+  /** Hide From Humans: caught frogs go into the hunters' cage until a friend lets them out. */
+  private cage(frog: PartyFrog, by: 'hunter' | 'trap' | 'human', catcher?: PartyFrog): void {
+    const now = this.time.now;
+    const slot = cageSlot([...this.frogs.values()].filter(item => item.caged).length);
+    frog.caged = true; frog.concealed = false; frog.revealed = false;
+    frog.capture(now, null, 650);
+    this.float(frog.x, frog.y - 100, 'CAUGHT!', '#ff6a4a', 22, 30, 1500);
+    if (catcher) { this.award(catcher, GAME.catchPoints, catcher.x, catcher.y - 120); this.float(catcher.x, catcher.y - 180, 'GOTCHA!', '#fff0b4', 18, 20, 1100); }
+    sound.play('spotted');
+    this.time.delayedCall(650, () => { if (this.frogs.has(frog.id) && frog.caged) { frog.release(); this.place(frog, slot.x, slot.y, 0); sound.play('clank'); } });
+    if (frog.control === 'phone') {
+      classHost.sendTo(frog.id, { kind: 'caught', scare: settings.jumpscares, by });
+      classHost.sendTo(frog.id, { kind: 'caged', caged: true });
+    }
+    this.scareProjector(frog);
+  }
+
+  /** A frog touched the cage: everyone inside hops out and scatters. */
+  private freed(frogs: PartyFrog[], by: PartyFrog): void {
+    const now = this.time.now;
+    const humans = [...this.frogs.values()].filter(frog => frog.isHuman);
+    for (const frog of frogs) {
+      frog.caged = false; frog.release();
+      const spot = randomSpot([...humans.map(human => ({ x: human.x, y: human.y, r: 600 })), { x: CAGE.x, y: CAGE.y, r: 500 }]);
+      this.place(frog, spot.x, spot.y, 260);
+      frog.safeUntil = now + 3000;
+      if (frog.control === 'phone') classHost.sendTo(frog.id, { kind: 'caged', caged: false });
+    }
+    this.award(by, GAME.freePoints * frogs.length, by.x, by.y - 120);
+    this.float(CAGE.x, CAGE.y - 140, 'FREED!', '#9ae07a', 26, 60, 1500);
+    this.context.announce('FREED!', `${by.name} opened the cage: ${frogs.length} frog${frogs.length === 1 ? '' : 's'} escaped!`, 'is-win');
+    sound.play('clank'); sound.play('unlock');
   }
 
   private knocked(frog: PartyFrog, dir: 1 | -1): void {
@@ -247,20 +302,40 @@ export class PondScene extends Phaser.Scene {
     if (frog.control === 'phone') classHost.sendTo(frog.id, { kind: 'sick', sick });
   }
 
-  /** The hidden cave: hop in and something happens (on your phone). Then it spits you back out. */
+  /**
+   * The cave (open in the last two rounds): a hiding place nobody can see into, and humans are too
+   * scared to go in. But something lives in there. The first time you go in, it gets you (a scare on
+   * your phone only); after that you can hide for a few seconds before it growls you back out.
+   */
   private checkCave(frog: PartyFrog, now: number): void {
-    if (!frog.canAct(now) || Math.hypot(frog.x - CAVE.x, frog.y - CAVE.y) > CAVE.radius) return;
-    if (now - frog.caveAt < GAME.caveCooldown * 1000) { this.place(frog, CAVE_EXIT.x, CAVE_EXIT.y, 60); this.float(frog.x, frog.y - 80, 'NOT AGAIN…', '#c8c8c8', 16, 30, 1000); return; }
-    frog.caveAt = now;
-    frog.hide(true);
-    frog.frozenUntil = now + 4200; frog.safeUntil = now + 6500;
-    this.cameras.main.shake(250, .004);
-    this.time.delayedCall(2900, () => {
-      this.float(CAVE.x - 40, CAVE.y - 140, 'AAAAAH!', '#ff5a3a', 26, 70, 1400);
-      sound.play('hurt');
-    });
-    this.time.delayedCall(4200, () => { if (!this.frogs.has(frog.id)) return; frog.hide(false); this.place(frog, CAVE_EXIT.x, CAVE_EXIT.y, 140); });
-    if (frog.control === 'phone' && settings.jumpscares) classHost.sendTo(frog.id, { kind: 'shock' });
+    if (!isCaveOpen() || frog.isHuman || frog.caged || this.inCave.has(frog.id)) return;
+    if (!frog.canAct(now) || !inCave(frog.x, frog.y) || now < frog.safeUntil) return;
+    this.inCave.add(frog.id);
+    frog.hide(true); frog.concealed = false;
+    const scare = settings.jumpscares && frog.caveAt === -Infinity && frog.control === 'phone';
+    const stay = scare ? 4300 : 7000;
+    frog.frozenUntil = now + stay;
+    const out = () => {
+      this.inCave.delete(frog.id);
+      if (!this.frogs.has(frog.id)) return;
+      frog.hide(false);
+      frog.safeUntil = this.time.now + 2500;
+      this.place(frog, CAVE_EXIT.x + Phaser.Math.Between(-40, 40), CAVE_EXIT.y, 140);
+    };
+    if (scare) {
+      frog.caveAt = now;
+      this.cameras.main.shake(250, .004);
+      this.time.delayedCall(2900, () => { this.float(CAVE.x - 40, CAVE.y - 140, 'AAAAAH!', '#ff5a3a', 26, 70, 1400); sound.play('hurt'); });
+      classHost.sendTo(frog.id, { kind: 'shock' });
+    } else {
+      this.time.delayedCall(stay - 1300, () => {
+        if (!this.inCave.has(frog.id)) return;
+        this.float(CAVE.x, CAVE.y - 150, 'GRRRR…', '#c8c8c8', 20, 40, 1300);
+        sound.play('growl');
+        if (frog.control === 'phone') classHost.sendTo(frog.id, { kind: 'growl' });
+      });
+    }
+    this.time.delayedCall(stay, out);
   }
 
   // ---------------------------------------------------------------- loop
@@ -275,13 +350,16 @@ export class PondScene extends Phaser.Scene {
       let hopping = false;
       if (frog.control === 'phone') hopping = this.followPhone(frog, time, dt, moving);
       else if (moving && this.phase === 'play' && frog.canAct(time)) hopping = this.moveBot(frog, time, dt);
+      // Frogs hiding out of sight vanish from the big screen too (the humans can see it!).
+      frog.veil = frog.concealed && !frog.revealed ? 0 : 1;
       frog.update(time, dt, hopping);
       const target = this.targets.get(frog.id);
       if (target) target.moving = hopping;
       if (moving) this.checkCave(frog, time);
     }
+    if (this.phase === 'play' && this.round?.hide && !this.paused && time >= this.nextFlash) this.lightning(time);
     if (time - this.lastReveal > 150) { this.lastReveal = time; this.map.reveal([...this.frogs.values()].filter(frog => !frog.isHidden)); }
-    if (time - this.lastShot > (this.moving ? (classHost.kind === 'firebase' ? 150 : 100) : 400)) { this.lastShot = time; this.broadcast(time); }
+    if (time - this.lastShot > (this.moving ? (classHost.kind === 'firebase' ? 200 : 100) : 400)) { this.lastShot = time; this.broadcast(time); }
     if (this.phase === 'play' && !this.paused && time >= this.holdUntil && this.play) {
       this.play.update(time, dt);
       const next = this.questions[this.quizIndex];
@@ -290,7 +368,7 @@ export class PondScene extends Phaser.Scene {
     }
     if (this.phase === 'quiz' && !this.paused && this.quiz) {
       const left = GAME.quizSeconds - (time - this.quiz.startedAt) / 1000;
-      const waiting = this.humans().filter(frog => frog.online && frog.control === 'phone');
+      const waiting = this.people().filter(frog => frog.online && frog.control === 'phone');
       if (left <= 0 || (waiting.length && waiting.every(frog => this.quiz!.answers.has(frog.id)) && time - this.quiz.startedAt > 1500)) this.reveal();
     }
     if (time - this.lastHud > 150) { this.lastHud = time; this.updateHud(); }
@@ -305,7 +383,7 @@ export class PondScene extends Phaser.Scene {
     const move = classHost.move(frog.id);
     if (move && move.at > target.at && moving && frog.canAct(now) && move.s === frog.seq) {
       target.at = move.at;
-      if (walkable(move.x, move.y, 8)) {
+      if (walkable(move.x, move.y, 8) && !(frog.isHuman && Math.hypot(move.x - CAVE.x, move.y - CAVE.y) < 70)) {
         if (Math.hypot(move.x - target.x, move.y - target.y) > 700) this.place(frog, frog.x, frog.y, 0); // too far: put the phone right
         else { target.x = move.x; target.y = move.y; frog.facing = FACINGS[move.f]; }
       }
@@ -321,14 +399,14 @@ export class PondScene extends Phaser.Scene {
   private moveBot(frog: PartyFrog, now: number, dt: number): boolean {
     let target = this.botTargets.get(frog.id);
     if (!target || now > target.until) {
-      const point = this.play?.botTarget(frog) ?? randomSpot();
+      const point = this.play?.botTarget(frog, now) ?? randomSpot();
       target = { x: point.x + Phaser.Math.Between(-12, 12), y: point.y + Phaser.Math.Between(-12, 12), until: now + 300 + Math.random() * 500, from: { x: frog.x, y: frog.y }, check: now + 700 };
       this.botTargets.set(frog.id, target);
     }
     const dx = target.x - frog.x, dy = target.y - frog.y, length = Math.hypot(dx, dy);
     if (length < 8) return false;
     const flags = (frog.boosted('speed', now) ? FLAG.speed : 0) | (frog.sick ? FLAG.sick : 0);
-    const pace = frogPace(flags, true) * dt / 1000;
+    const pace = frogPace(flags, true, this.play?.event?.kind === 'quake') * dt / 1000;
     const next = step(frog.x, frog.y, dx / length * pace, dy / length * pace);
     frog.face(next.x - frog.x, next.y - frog.y);
     frog.x = next.x; frog.y = next.y;
@@ -359,9 +437,15 @@ export class PondScene extends Phaser.Scene {
       if (frog.isBot) flags |= FLAG.bot;
       if (!frog.online) flags |= FLAG.away;
       if (now < frog.safeUntil) flags |= FLAG.safe;
+      if (frog.isHuman) flags |= FLAG.human;
+      if (frog.concealed) flags |= FLAG.concealed;
+      if (frog.revealed) flags |= FLAG.revealed;
+      if (frog.caged) flags |= FLAG.caged;
       return [frog.id, Math.round(frog.x), Math.round(frog.y), FACINGS.indexOf(frog.facing) * 2 + moving, flags, frog.seq, frog.score];
     });
-    const shot: WorldSnapshot = { n: ++this.shots, f: rows, b: [], ...(this.play?.snapshot() ?? {}) };
+    const shot: WorldSnapshot = { n: ++this.shots, f: rows, b: [], ...(this.play?.snapshot(now) ?? {}) };
+    if (isCaveOpen()) shot.o = 1;
+    if (this.flashes) shot.z = this.flashes;
     if (this.play && this.round) shot.t = Math.max(0, Math.ceil(this.round.seconds - this.play.elapsed));
     if (this.rosterChanged || this.shots % 20 === 0) {
       this.rosterChanged = false;
@@ -389,6 +473,7 @@ export class PondScene extends Phaser.Scene {
     else if (this.phase === 'howto') this.roundIntro();
     else if (this.phase === 'roundIntro') this.countdown();
     else if (this.phase === 'reveal') this.resumeAfterQuiz();
+    else if (this.phase === 'cooking') this.results();
     else if (this.phase === 'results') this.info();
   }
 
@@ -421,21 +506,69 @@ export class PondScene extends Phaser.Scene {
     const round = this.round;
     if (!round) { this.finish(); return; }
     this.phase = 'roundIntro';
+    this.syncBots();
+    const humans = round.hide ? this.assignRoles() : [];
+    if (!round.hide) for (const frog of this.frogs.values()) frog.setRole('frog');
+    // The cave opens for the last two rounds.
+    setCaveOpen(this.roundIndex >= 1);
+    this.map.setCave(this.roundIndex >= 1);
+    this.inCave.clear();
+    const placed: (Point & { r: number })[] = [];
     for (const frog of this.frogs.values()) {
       frog.roundScore = 0; frog.frozenUntil = 0; frog.safeUntil = 0; frog.sick = false; frog.boosts.clear(); frog.hide(false); frog.release();
-      const spot = randomSpot([...this.frogs.values()].map(item => ({ x: item.x, y: item.y, r: 90 })));
+      frog.caged = false; frog.concealed = false; frog.revealed = false;
+      // Hide From Humans: the humans start at their camp, the frogs well away from it.
+      const spot = frog.isHuman ? this.campSpot(placed) : randomSpot([...placed, ...(round.hide ? [{ x: CAMP.x, y: CAMP.y, r: 750 }] : [])]);
+      placed.push({ ...spot, r: 90 });
       this.place(frog, spot.x, spot.y);
     }
     this.setDarkness(round.darkness);
     sound.music(null);
     this.publish({ mode: 'intro', title: `Round ${round.number}: ${round.title}`, goal: `${round.goal} ${round.twist}` });
+    const humanList = humans.length ? `<p class="rc-humans">🔦 HUMANS: ${humans.map(frog => `<b style="background:${frog.color};color:${textOn(frog.color)}">${esc(frog.name)}</b>`).join(' ')}<br><small>Everyone else is a frog. Hide in bushes, hollow logs, tall grass… or the cave.</small></p>` : '';
     this.modal(`<div class="round-card round-${round.id}" role="dialog" aria-label="Round ${round.number}">
       <span class="rc-number">ROUND ${round.number} OF ${ROUNDS.length}</span>
       <h2>${esc(round.title)}</h2>
       <p class="rc-goal">${esc(round.goal)}</p>
+      ${humanList}
       <p class="rc-twist">${esc(round.twist)}</p>
     </div>`);
-    this.setNext('START ROUND', 8);
+    this.setNext('START ROUND', round.hide ? 14 : 8);
+  }
+
+  /** Hide From Humans: picks which players are the humans this round, and tells everyone. */
+  private assignRoles(): PartyFrog[] {
+    const players = this.people().filter(frog => frog.online);
+    const shuffled = [...players].sort(() => Math.random() - .5);
+    const humans = shuffled.slice(0, humansFor(players.length));
+    for (const frog of this.frogs.values()) {
+      frog.setRole(humans.includes(frog) ? 'human' : 'frog');
+      if (frog.control === 'phone') classHost.sendTo(frog.id, { kind: 'role', role: frog.role });
+    }
+    return humans;
+  }
+
+  /** Somewhere at the hunters' camp. */
+  private campSpot(avoid: (Point & { r: number })[]): Point {
+    for (let i = 0; i < 40; i++) {
+      const angle = Math.random() * Math.PI * 2, d = 140 + Math.random() * 120;
+      const spot = { x: Math.round(CAMP.x + Math.cos(angle) * d), y: Math.round(CAMP.y + Math.sin(angle) * d * .7) };
+      if (walkable(spot.x, spot.y, 24) && avoid.every(item => Math.hypot(item.x - spot.x, item.y - spot.y) > 70)) return spot;
+    }
+    return randomSpot(avoid);
+  }
+
+  /** Hide From Humans: lightning now and then lights up the whole forest (and phones flash too). */
+  private lightning(now: number): void {
+    const first = this.nextFlash === 0;
+    this.nextFlash = now + 9000 + Math.random() * 8000;
+    if (first) return;
+    this.flashes++;
+    const flash = document.createElement('div');
+    flash.className = 'lightning';
+    $(this.root, '#fx').append(flash);
+    window.setTimeout(() => flash.remove(), 900);
+    this.time.delayedCall(300, () => sound.play('thunder'));
   }
 
   private countdown(): void {
@@ -455,17 +588,27 @@ export class PondScene extends Phaser.Scene {
 
   private startPlay(): void {
     const round = this.round!;
-    this.play = new PondGame(this.context, round);
+    const times = questionTimes(round);
+    const kinds = Object.keys(EVENTS) as EventKind[];
+    const humans = [...this.frogs.values()].filter(frog => frog.isHuman);
+    this.play = new PondGame(this.context, round, { npcHunters: round.hide && !humans.length, event: kinds[Math.floor(Math.random() * kinds.length)], eventAt: eventTime(round, times) });
     this.play.start();
-    this.questions = pickQuestions(round.id, round.questions).map((question, i) => ({ question, at: questionTimes(round)[i] }));
+    this.questions = pickQuestions(round.id, round.questions).map((question, i) => ({ question, at: times[i] }));
     this.quizIndex = 0;
+    this.nextFlash = 0;
+    if (humans.length) {
+      // The humans count to five at their camp while the frogs run and hide.
+      for (const human of humans) human.frozenUntil = this.time.now + HEAD_START;
+      this.context.announce('FROGS, HIDE!', 'The humans are counting to five…', 'is-threat');
+      this.time.delayedCall(HEAD_START, () => { if (this.round === round && this.play) { this.context.announce('READY OR NOT…', 'Here come the humans!', 'is-threat'); sound.play('spotted'); } });
+    }
     this.continuePlay();
   }
 
   private continuePlay(): void {
     this.phase = 'play';
     const round = this.round!;
-    sound.music('game');
+    sound.music(round.hide ? 'hunt' : 'game');
     this.publish({ mode: 'round', round: round.number, rounds: ROUNDS.length, title: round.title, goal: round.goal });
   }
 
@@ -493,7 +636,7 @@ export class PondScene extends Phaser.Scene {
   private renderQuizCount(): void {
     const count = this.root.querySelector('#quiz-count');
     if (!count || !this.quiz) return;
-    const players = this.humans().filter(frog => frog.online && frog.control === 'phone').length;
+    const players = this.people().filter(frog => frog.online && frog.control === 'phone').length;
     count.textContent = `${this.quiz.answers.size} / ${players} answered`;
   }
 
@@ -503,7 +646,7 @@ export class PondScene extends Phaser.Scene {
     this.phase = 'reveal';
     const { question } = quiz;
     const counts = [0, 0, 0, 0];
-    for (const frog of this.humans()) {
+    for (const frog of this.people()) {
       const answer = quiz.answers.get(frog.id);
       if (answer) counts[answer.choice]++;
       const correct = answer?.choice === question.correct;
@@ -538,8 +681,46 @@ export class PondScene extends Phaser.Scene {
   private endRound(): void {
     if (this.phase !== 'play') return;
     const round = this.round!;
-    this.phase = 'results';
     this.play?.end(); this.play = undefined;
+    if (round.hide) this.cook(); else this.results();
+  }
+
+  /**
+   * End of Hide From Humans: every frog still in the cage goes in the pot. A cartoon, but it really
+   * happened: mountain chickens were hunted and cooked, up to 36,000 a year until 2004.
+   */
+  private cook(): void {
+    this.phase = 'cooking';
+    const frogs = [...this.frogs.values()];
+    const cooked = frogs.filter(frog => frog.caged);
+    const escaped = frogs.filter(frog => !frog.isHuman && !frog.caged);
+    for (const frog of escaped) this.award(frog, GAME.surviveBonus, frog.x, frog.y - 120);
+    for (const frog of frogs) {
+      if (frog.control === 'phone' && !frog.isHuman) classHost.sendTo(frog.id, { kind: 'cooked', cooked: frog.caged, points: frog.caged ? 0 : GAME.surviveBonus });
+    }
+    this.publish({ mode: 'cooking', cooked: cooked.length });
+    sound.music(null);
+    sound.play('whistle');
+    const shown = cooked.slice(0, 12);
+    this.modal(`<div class="cook-scene" role="dialog" aria-label="The cooking pot">
+      <h2>${cooked.length ? 'INTO THE POT! 🍲' : 'THE POT IS EMPTY!'}</h2>
+      <p class="cook-sub">${cooked.length ? `${cooked.length} frog${cooked.length === 1 ? '' : 's'} didn't escape the cage. Every frog that got away: +${GAME.surviveBonus}!` : `Every frog escaped the humans! +${GAME.surviveBonus} for every frog.`}</p>
+      <div class="cook-stage">
+        <div class="cook-steam"><i></i><i></i><i></i></div>
+        ${shown.map((frog, i) => `<div class="cook-frog" style="--i:${i};--x:${((i % 6) - (Math.min(shown.length, 6) - 1) / 2) * 44}px">${frogHtml(frog.look)}<b>${esc(frog.name)}</b></div>`).join('')}
+        <img class="pixel cook-pot" src="${artUrl('pot', 12)}" alt="">
+        <img class="pixel cook-fire" src="${artUrl('campfire', 12)}" alt="">
+      </div>
+      ${cooked.length > shown.length ? `<p class="cook-more">…and ${cooked.length - shown.length} more</p>` : ''}
+      <p class="cook-fact">This really happened. People hunted mountain chickens to cook and eat, up to 36,000 a year, until hunting was banned in 2004.</p>
+    </div>`);
+    shown.forEach((_, i) => this.time.delayedCall(900 + i * 450, () => sound.play('bubble')));
+    this.setNext('RESULTS', 10 + Math.min(4, shown.length * .45));
+  }
+
+  private results(): void {
+    const round = this.round!;
+    this.phase = 'results';
     sound.music('finale');
     sound.play('whistle');
     const frogs = [...this.frogs.values()];
@@ -550,6 +731,7 @@ export class PondScene extends Phaser.Scene {
     this.modal(`<div class="results-card" role="dialog" aria-label="Round results">
       <span class="rc-number">ROUND ${round.number} OF ${ROUNDS.length} · ${esc(round.title.toUpperCase())}</span>
       <h2>ROUND OVER!</h2>
+      ${round.hide ? `<p class="results-hide">🐸 ${frogs.filter(frog => !frog.isHuman && !frog.caged).length} frogs escaped · 🍲 ${frogs.filter(frog => frog.caged).length} went in the pot</p>` : ''}
       ${top.length ? `<ol class="results-top">${top.map(item => `<li><span class="medal">${['🥇', '🥈', '🥉'][item.rank - 1] ?? item.rank}</span><i class="dot" style="background:${color(item.id)}"></i><b>${esc(item.name)}</b><span>${item.score} pts this round</span></li>`).join('')}</ol>` : '<p>No players yet.</p>'}
       ${overall ? `<p class="results-leader">Leading the game: <i class="dot" style="background:${color(overall.id)}"></i><b>${esc(overall.name)}</b> with ${overall.score} points</p>` : ''}
     </div>`);
@@ -631,6 +813,8 @@ export class PondScene extends Phaser.Scene {
       frog.score = 0; frog.roundScore = 0;
     }
     this.phase = 'lobby'; this.roundIndex = -1; this.quiz = undefined; this.seen = []; this.scaredProjector = false;
+    for (const frog of this.frogs.values()) { frog.setRole('frog'); frog.caged = false; frog.hide(false); }
+    setCaveOpen(false); this.map.setCave(false); this.inCave.clear();
     this.setDarkness(0);
     sound.music('forest');
     this.publish({ mode: 'lobby' });
@@ -683,7 +867,7 @@ export class PondScene extends Phaser.Scene {
 
   private renderPlayers(): void {
     if (!this.root || this.phase !== 'lobby') return;
-    const humans = this.humans();
+    const humans = this.people();
     const count = this.root.querySelector('#player-count');
     if (count) count.textContent = humans.length ? `${humans.length} player${humans.length === 1 ? '' : 's'} in the pond` : 'Waiting for players… (or press START to watch computer frogs)';
     const chips = this.root.querySelector('#chips');
@@ -708,11 +892,15 @@ export class PondScene extends Phaser.Scene {
 
   private updateHud(): void {
     this.root.querySelector('.pond')?.classList.toggle('is-lobby', this.phase === 'lobby');
+    this.root.querySelector('.pond')?.classList.toggle('is-hunt', !!this.round?.hide && (this.phase === 'play' || this.phase === 'countdown'));
     const round = this.round;
     const hud = $(this.root, '#hud-round');
     if (round && this.phase !== 'lobby' && this.phase !== 'howto') {
       const left = Math.max(0, Math.ceil(round.seconds - (this.play?.elapsed ?? (this.phase === 'roundIntro' || this.phase === 'countdown' ? 0 : round.seconds))));
-      const html = `<span class="hud-label">ROUND ${round.number} OF ${ROUNDS.length}</span><b class="hud-title">${esc(round.title)}</b><b class="hud-timer ${left <= 10 && this.phase === 'play' ? 'is-low' : ''}">${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}</b>`;
+      const prey = [...this.frogs.values()].filter(frog => !frog.isHuman);
+      const caged = prey.filter(frog => frog.caged).length;
+      const stats = round.hide && (this.phase === 'play' || this.phase === 'quiz' || this.phase === 'reveal') ? `<span class="hud-stats">🐸 ${prey.length - caged} free · 🔒 ${caged} in the cage</span>` : '';
+      const html = `<span class="hud-label">ROUND ${round.number} OF ${ROUNDS.length}</span><b class="hud-title">${esc(round.title)}</b><b class="hud-timer ${left <= 10 && this.phase === 'play' ? 'is-low' : ''}">${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}</b>${stats}`;
       if (hud.innerHTML !== html) hud.innerHTML = html;
       hud.hidden = false;
     } else hud.hidden = true;

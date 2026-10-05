@@ -5,8 +5,9 @@ import { settings } from './Settings';
  * nothing if audio is blocked. Browsers only allow sound after a click or key press (unlock()).
  */
 export type Sfx = 'click' | 'hop' | 'tongue' | 'gulp' | 'catch' | 'card' | 'stamp' | 'unlock' | 'hurt' | 'spotted' | 'scare'
-  | 'correct' | 'wrong' | 'tick' | 'join' | 'react' | 'whoop' | 'victory' | 'chime' | 'cluck' | 'burp' | 'thud' | 'rumble' | 'trap' | 'shriek' | 'whistle';
-export type Music = 'lobby' | 'forest' | 'game' | 'finale' | null;
+  | 'correct' | 'wrong' | 'tick' | 'join' | 'react' | 'whoop' | 'victory' | 'chime' | 'cluck' | 'burp' | 'thud' | 'rumble' | 'trap' | 'shriek' | 'whistle'
+  | 'heartbeat' | 'thunder' | 'clank' | 'growl' | 'bubble';
+export type Music = 'lobby' | 'forest' | 'game' | 'hunt' | 'finale' | null;
 
 const midi = (note: number) => 440 * 2 ** ((note - 69) / 12);
 const chance = (p: number) => Math.random() < p;
@@ -160,6 +161,11 @@ class SoundSystem {
       }
       case 'whistle': this.tone(t, 1800, 0.18, { type: 'sine', gain: 0.1, vibrato: 60 }); this.tone(t + 0.22, 1800, 0.5, { type: 'sine', gain: 0.1, vibrato: 60 }); break;
       case 'victory': [523, 659, 784, 1047, 784, 1047].forEach((f, i) => this.tone(t + i * 0.11, f, i === 5 ? 0.8 : 0.16, { type: 'square', gain: 0.06, filter: 3500 })); break;
+      case 'heartbeat': this.tone(t, 62, 0.12, { type: 'sine', slide: 40, gain: 0.5 }); this.tone(t + 0.18, 56, 0.14, { type: 'sine', slide: 36, gain: 0.4 }); break;
+      case 'thunder': this.noise(t, 0.12, { type: 'highpass', freq: 2000, gain: 0.25 }); this.noise(t + 0.05, 2.4, { type: 'lowpass', freq: 220, slide: 90, gain: 0.5, attack: 0.08 }); break;
+      case 'clank': this.tone(t, 330, 0.18, { type: 'square', slide: 220, gain: 0.08, filter: 1600 }); this.noise(t, 0.12, { freq: 3000, gain: 0.1, q: 2 }); this.tone(t + 0.1, 180, 0.3, { type: 'square', gain: 0.06, filter: 900 }); break;
+      case 'growl': this.tone(t, 70, 1.2, { type: 'sawtooth', slide: 52, gain: 0.25, filter: 380, vibrato: 18, attack: 0.15 }); this.noise(t, 1.1, { type: 'lowpass', freq: 300, gain: 0.2, attack: 0.2 }); break;
+      case 'bubble': for (let i = 0; i < 4; i++) this.tone(t + i * 0.09 + Math.random() * 0.05, 300 + Math.random() * 300, 0.07, { type: 'sine', slide: 900, gain: 0.08 }); break;
     }
   }
 
@@ -202,7 +208,7 @@ class SoundSystem {
   private schedule(): void {
     const ctx = this.ctx;
     if (!ctx || !this.current) return;
-    const bpm = { lobby: 124, finale: 118, forest: 84, game: 136 }[this.current];
+    const bpm = { lobby: 124, finale: 118, forest: 84, game: 136, hunt: 70 }[this.current];
     const sixteenth = 60 / bpm / 4;
     if (this.nextTime < ctx.currentTime - 0.5) this.nextTime = ctx.currentTime + 0.05; // tab was hidden
     while (this.nextTime < ctx.currentTime + 0.12) {
@@ -240,6 +246,15 @@ class SoundSystem {
       if (step % 32 === 0) pluck(scale[0] - 12, 0.03, 1.8, 'sine');
       if (chance(0.025)) [2600, 3100, 2800].forEach((f, i) => this.tone(t + i * 0.07, f, 0.06, { type: 'sine', slide: f * 1.25, gain: 0.015, dest }));
       if (chance(0.012)) this.whoop(t, dest, 0.05);
+    } else if (track === 'hunt') {
+      // Hide From Humans: a low drone, a heartbeat kick, creepy high notes and an owl now and then.
+      const s = step % 16;
+      if (step % 64 === 0) this.tone(t, midi(33), sixteenth * 64, { type: 'sawtooth', gain: 0.05, filter: 240, attack: 1.2, dest });
+      if (s === 0) this.tone(t, 62, 0.12, { type: 'sine', slide: 40, gain: 0.22, dest });
+      if (s === 3) this.tone(t, 56, 0.14, { type: 'sine', slide: 36, gain: 0.16, dest });
+      if (s % 4 === 2 && chance(0.18)) this.tone(t, midi(pick([82, 83, 87, 88, 94])), 0.9, { type: 'sine', gain: 0.012, vibrato: 7, attack: 0.3, dest });
+      if (chance(0.01)) [440, 392].forEach((f, i) => this.tone(t + i * 0.35, f, 0.3, { type: 'sine', gain: 0.03, vibrato: 4, attack: 0.05, dest })); // hoo-hoo
+      if (chance(0.03)) this.noise(t, 0.25, { type: 'bandpass', freq: 1800, gain: 0.02, q: 3, dest }); // rustling
     } else if (track === 'game') {
       // Sneaky, driving minor-key groove: A minor, F, G, E.
       const bar = Math.floor(step / 16) % 4, s = step % 16;

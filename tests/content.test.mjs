@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { JOURNAL, RUBRIC_KEYS, SIX_DEGREES, BONUS_CHAIN } from '../src/data/journal.ts';
 import { SOURCES } from '../src/data/sources.ts';
-import { GAME, ROUNDS, BOOSTS, questionTimes } from '../src/data/game.ts';
+import { GAME, ROUNDS, BOOSTS, EVENTS, questionTimes, eventTime, humansFor } from '../src/data/game.ts';
 import { QUESTIONS, pickQuestions } from '../src/data/quiz.ts';
 
 test('every rubric bullet has exactly one short, sourced fact card', () => {
@@ -43,7 +43,8 @@ test('three short rounds, each with its own danger and a fact card after it', ()
   assert.deepEqual(ROUNDS.map(round => round.number), [1, 2, 3]);
   const total = ROUNDS.reduce((sum, round) => sum + round.seconds + round.questions * (GAME.quizSeconds + GAME.revealSeconds), 0);
   assert.ok(total >= 240 && total <= 420, `the rounds with their quizzes take ${total}s`);
-  assert.ok(ROUNDS[0].pigs && ROUNDS[1].hunters.length && ROUNDS[1].traps && ROUNDS[2].fungus, 'pigs, then hunters, then fungus');
+  assert.ok(ROUNDS[0].pigs && ROUNDS[1].hide && ROUNDS[2].fungus, 'pigs, then Hide From Humans, then fungus');
+  assert.equal(ROUNDS[1].title, 'Hide From Humans');
   const keys = new Set(RUBRIC_KEYS);
   for (const round of ROUNDS) assert.ok(keys.has(round.info), `${round.title} shows a real fact card`);
   assert.equal(new Set(ROUNDS.map(round => round.info)).size, ROUNDS.length);
@@ -73,6 +74,28 @@ test('quiz questions: four answers, one right, a sourced fact, enough for every 
   for (const topic of ['Name', 'Status', 'Habitat', 'Physical description', 'Niche', 'Reasons it is endangered', 'Importance', 'Support', 'Six degrees of separation']) assert.ok(topics.has(topic), `a question about ${topic}`);
   // The right answer isn't always in the same place.
   assert.ok(new Set(QUESTIONS.map(question => question.correct)).size === 4);
+});
+
+test('Hide From Humans: about one human per six players, never more frogs-turned-humans than frogs', () => {
+  assert.equal(humansFor(0), 0);
+  assert.equal(humansFor(1), 0, 'one player plays against computer hunters');
+  for (let players = 2; players <= 60; players++) {
+    const humans = humansFor(players);
+    assert.ok(humans >= 1 && humans <= players / 2, `${players} players → ${humans} humans`);
+  }
+  assert.equal(humansFor(30), 5);
+  assert.equal(humansFor(12), 2);
+});
+
+test('one random event per round, away from the start, the end and the quiz', () => {
+  assert.deepEqual(Object.keys(EVENTS).sort(), ['golden', 'quake', 'rain', 'wind']);
+  for (const round of ROUNDS) {
+    for (const random of [() => 0, () => .5, () => .999]) {
+      const quiz = questionTimes(round, random);
+      const at = eventTime(round, quiz, random);
+      assert.ok(at >= 10 && at <= round.seconds - 10, `${round.id}: event at ${at}`);
+    }
+  }
 });
 
 test('quiz questions pop up in the middle of a round, spread out', () => {

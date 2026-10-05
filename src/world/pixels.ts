@@ -478,6 +478,79 @@ function drawHut(ctx: Context): void {
   rect(ctx, '#3f6a4a', 12, 28, 3, 4); // a field notebook crate
 }
 
+/** A big leafy bush a frog can hide inside. */
+function drawHideBush(ctx: Context): void {
+  oval(ctx, '#00000033', 18, 24, 17, 3);
+  oval(ctx, '#1f3a22', 18, 15, 18, 11); oval(ctx, '#2c5230', 12, 13, 11, 9); oval(ctx, '#2c5230', 25, 12, 10, 9);
+  oval(ctx, '#3f6f3a', 17, 10, 13, 8); oval(ctx, '#4f8a44', 13, 8, 8, 5); oval(ctx, '#4f8a44', 24, 9, 7, 5);
+  speckle(ctx, ['#6aa852', '#24442a', '#8cc464', '#36603a'], 1, 3, 35, 20, 30, 17);
+  for (const [x, y] of [[6, 18], [30, 17], [15, 21], [24, 20]]) { rect(ctx, '#2c5230', x, y, 3, 3); rect(ctx, '#4f8a44', x, y, 2, 1); }
+  for (const [x, y] of [[9, 6], [27, 8], [19, 4]]) { rect(ctx, '#e04a6a', x, y, 2, 2); rect(ctx, '#ffd0dc', x, y, 1, 1); }
+}
+
+/** A fallen, hollow log: frogs crawl inside. */
+function drawHollowLog(ctx: Context): void {
+  oval(ctx, '#00000033', 16, 12, 16, 2);
+  rect(ctx, '#4a321c', 3, 2, 26, 10); rect(ctx, '#6e4a2a', 3, 3, 26, 3); rect(ctx, '#3a2614', 3, 10, 26, 2);
+  for (const x of [8, 14, 20, 25]) rect(ctx, '#3a2614', x, 4, 2, 1);
+  oval(ctx, '#7a5634', 3, 7, 3, 5); oval(ctx, '#140c08', 3, 7, 2, 4); // the dark hole at the front
+  oval(ctx, '#8a6644', 29, 7, 3, 5); oval(ctx, '#c49a62', 29, 7, 2, 3); rect(ctx, '#8a6644', 29, 7, 1, 1);
+  oval(ctx, '#4f8a44', 16, 2, 6, 1); rect(ctx, '#7ac05a', 12, 1, 4, 1); rect(ctx, '#d8c070', 22, 1, 2, 1);
+}
+
+/** A patch of tall grass. */
+function drawTallGrass(ctx: Context): void {
+  oval(ctx, '#3a5a2a', 20, 16, 19, 2);
+  for (let x = 1; x < 39; x += 2) {
+    const h = 9 + (hash(x, 3) % 8);
+    const lean = hash(x, 7) % 3 - 1;
+    for (let y = 0; y < h; y++) rect(ctx, y < 3 ? '#c8d070' : x % 4 ? '#5a8a3a' : '#7aa84a', x + Math.round(lean * y / h), 17 - y, 1, 1);
+  }
+}
+
+function drawTent(ctx: Context): void {
+  oval(ctx, '#00000038', 15, 24, 15, 2);
+  for (let y = 2; y < 24; y++) { const half = Math.round((y - 2) * .62); rect(ctx, '#5a6a3a', 15 - half, y, half * 2 + 1, 1); rect(ctx, '#7a8a4a', 15 - half, y, half, 1); }
+  for (let y = 10; y < 24; y++) { const half = Math.round((y - 10) * .36); rect(ctx, '#1a140e', 15 - half, y, half * 2 + 1, 1); }
+  rect(ctx, '#3a2a1a', 15, 0, 1, 3); rect(ctx, '#c84a2a', 16, 0, 3, 2);
+  rect(ctx, '#3a2a1a', 1, 23, 2, 2); rect(ctx, '#3a2a1a', 28, 23, 2, 2);
+}
+
+/** The hunters' wooden cage, where caught frogs wait. */
+function drawJail(ctx: Context): void {
+  oval(ctx, '#00000040', 17, 25, 17, 2);
+  rect(ctx, '#3a2614', 1, 22, 32, 3); rect(ctx, '#6a4a2a', 1, 22, 32, 1);
+  rect(ctx, '#3a2614', 1, 1, 32, 3); rect(ctx, '#8a6a3a', 1, 1, 32, 1);
+  for (let x = 1; x < 34; x += 4) { rect(ctx, '#3a2614', x, 3, 2, 19); rect(ctx, '#8a6a3a', x, 3, 1, 19); }
+  rect(ctx, '#3a2614', 1, 12, 32, 1);
+  rect(ctx, '#9a9aa0', 16, 10, 3, 4); rect(ctx, '#d0d0d8', 16, 10, 1, 1); // padlock
+}
+
+function drawCampfire(ctx: Context, frame: number): void {
+  oval(ctx, '#00000040', 9, 11, 9, 2);
+  for (const [x, y] of [[2, 9], [6, 10], [11, 10], [15, 9]]) { rect(ctx, '#6a6a64', x, y, 3, 2); rect(ctx, '#9a9a90', x, y, 2, 1); }
+  rect(ctx, '#5a3a20', 3, 8, 12, 2); rect(ctx, '#7a5430', 5, 7, 8, 1);
+  const flames = frame ? [[6, 3, 2], [9, 1, 3], [12, 4, 2]] : [[6, 2, 3], [9, 3, 2], [11, 1, 2]];
+  for (const [x, top, w] of flames) { rect(ctx, '#e8501a', x, top + 2, w + 1, 7 - top); rect(ctx, '#ffb030', x + 1, top + 3, w - 1, 5 - top); rect(ctx, '#fff0a0', x + 1, top + 5, 1, 2); }
+}
+
+/** A big black cooking pot (the frogs know what that's for). */
+function drawPot(ctx: Context): void {
+  rect(ctx, '#2a2a2a', 0, 3, 24, 2); // rim
+  oval(ctx, '#1a1a1a', 12, 10, 11, 7); oval(ctx, '#2e2e30', 11, 9, 9, 5); rect(ctx, '#4a4a4e', 4, 7, 2, 4);
+  rect(ctx, '#3a3a3a', 0, 4, 24, 1);
+  oval(ctx, '#7a9a3a', 12, 3, 10, 1); rect(ctx, '#a8c860', 6, 3, 3, 1); rect(ctx, '#a8c860', 15, 3, 2, 1); // soup
+  rect(ctx, '#1a1a1a', 4, 16, 2, 2); rect(ctx, '#1a1a1a', 18, 16, 2, 2);
+}
+
+/** The boulder that blocks the cave in round 1. */
+function drawBoulder(ctx: Context): void {
+  oval(ctx, '#00000040', 14, 20, 13, 2);
+  oval(ctx, '#3e423c', 14, 12, 13, 9); oval(ctx, '#5c6258', 13, 10, 11, 7); oval(ctx, '#7a8276', 10, 7, 5, 3);
+  speckle(ctx, ['#2e322c', '#8c948a'], 2, 4, 24, 16, 16, 21);
+  oval(ctx, '#4f7a3a', 16, 4, 6, 1); rect(ctx, '#3a2a1a', 8, 14, 9, 1);
+}
+
 /** Hats players can put on their frog (same order as HATS in src/data/looks.ts, minus "none"). */
 function drawHat(ctx: Context, kind: string): void {
   if (kind === 'crown') {
@@ -603,6 +676,16 @@ export const simple: Record<string, [number, number, Draw]> = {
   log: [31, 11, drawLog],
   hut: [40, 35, drawHut],
   'you-arrow': [9, 6, ctx => { for (let y = 0; y < 5; y++) { rect(ctx, '#1d1712', y, y, 9 - y * 2, 1); rect(ctx, '#ffffff', y + 1, y, Math.max(0, 7 - y * 2), 1); } rect(ctx, '#1d1712', 4, 5, 1, 1); }],
+  'hide-bush': [36, 26, drawHideBush],
+  'hollow-log': [32, 14, drawHollowLog],
+  'tall-grass': [40, 18, drawTallGrass],
+  tent: [31, 26, drawTent],
+  jail: [34, 26, drawJail],
+  campfire: [18, 12, ctx => drawCampfire(ctx, 0)], 'campfire-1': [18, 12, ctx => drawCampfire(ctx, 1)],
+  pot: [24, 18, drawPot],
+  boulder: [28, 22, drawBoulder],
+  raindrop: [1, 5, ctx => { rect(ctx, '#bfe0ff', 0, 0, 1, 5); rect(ctx, '#ffffff', 0, 0, 1, 1); }],
+  ash: [3, 3, ctx => { rect(ctx, '#8a847c', 0, 0, 3, 3); rect(ctx, '#c8c0b8', 1, 1, 1, 1); }],
   sparkle: [5, 5, ctx => { rect(ctx, '#e8f8ff', 2, 0, 1, 5); rect(ctx, '#e8f8ff', 0, 2, 5, 1); rect(ctx, '#ffffff', 2, 2, 1, 1); }],
   'boost-speed': [14, 14, ctx => drawBoost(ctx, 'speed')], 'boost-tongue': [14, 14, ctx => drawBoost(ctx, 'tongue')],
   'boost-double': [14, 14, ctx => drawBoost(ctx, 'double')], 'boost-shield': [14, 14, ctx => drawBoost(ctx, 'shield')],
